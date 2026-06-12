@@ -93,8 +93,8 @@ app.get('/api/files/:address', async (req, res) => {
                 id: txId,
                 name: nameTag ? nameTag.value : 'Archivo sin nombre',
                 type: typeTag ? typeTag.value : 'Desconocido',
-                url: "https://arweave.net" + txId,
-                txUrl: "https://viewblock.io" + txId
+                url: "https://arweave.net/" + txId,
+                txUrl: "https://viewblock.io/arweave/tx/" + txId
             };
         });
 
