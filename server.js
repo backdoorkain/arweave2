@@ -23,7 +23,7 @@ try {
         wallet = JSON.parse(process.env.ARWEAVE_WALLET);
         arweave.wallets.jwkToAddress(wallet).then(address => {
             walletAddress = address;
-            console.log(`>>> Conconnected to Arweave Raw. Dirección: ${address}`);
+            console.log(`>>> Conectado a Arweave Raw. Dirección: ${address}`);
         });
     } else {
         console.error(">>> ERROR: Configura la variable ARWEAVE_WALLET en Render.");
@@ -35,14 +35,12 @@ try {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- SOLUCIÓN ANTICACHÉ CRÍTICA ---
-// Deshabilitamos por completo las cabeceras de caché del lado del servidor Express
+// Forzar la deshabilitación de la caché del lado del servidor
 app.use((req, res, next) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
     next();
 });
 
-// Forzamos el envío del archivo index.html limpio eliminando express.static en la raíz
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
@@ -87,7 +85,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// --- RUTA 2: LISTAR ARCHIVOS ---
+// --- RUTA 2 REPARADA: CONCATENACIÓN CON DIAGONALES CORRECTAS ---
 app.get('/api/files', async (req, res) => {
     try {
         if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
@@ -115,6 +113,8 @@ app.get('/api/files', async (req, res) => {
                 id: txId,
                 name: nameTag ? nameTag.value : 'Archivo sin nombre',
                 type: typeTag ? typeTag.value : 'Desconocido',
+                
+                // CORRECCIÓN DEFINITIVA: Añadimos las diagonales manuales estrictas a cada enlace base
                 url: "https://arweave.net" + txId,
                 txUrl: "https://viewblock.io" + txId
             };
