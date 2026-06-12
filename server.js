@@ -126,13 +126,15 @@ app.get('/api/balance', async (req, res) => {
     }
 });
 
-// --- RUTA 4 REPARADA: CONCATENACIÓN CORRECTA DE LA URL ---
+// --- RUTA 4: CONCATENACIÓN ULTRA-SEGURA (OMITE CUALQUIER FALLO DE FORMATO) ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = req.params.bytes;
         
-        // CORRECCIÓN TÉCNICA: Usamos comillas invertidas y la sintaxis template string correcta
-        const response = await fetch(`https://arweave.net{bytes}`);
+        // Forzamos la URL usando suma de texto plano para que no haya riesgo de heredar llaves
+        const urlOficial = "https://arweave.net" + bytes;
+        
+        const response = await fetch(urlOficial);
         const winstonPriceText = await response.text();
 
         const arPrice = arweave.ar.winstonToAr(winstonPriceText.trim());
