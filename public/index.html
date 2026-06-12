@@ -257,7 +257,7 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA UTILIZANDO EL INYECTOR GLOBAL DE WANDER
+        // 5. SUBIDA ASÍNCRONA: FIRMA LIGERA EN WANDER Y ENVÍO CONJUNTO
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!userAddress) {
@@ -269,68 +269,60 @@
             const fileReal = fileInput.files[0]; 
             
             btnSubmit.disabled = true;
-            btnSubmit.innerText = "Abriendo Wander para firmar...";
-            showMessage('Invocando extensión Wander. Por favor aprueba la transacción en la ventana emergente...', 'msg-blue');
+            btnSubmit.innerText = "Abriendo Wander...";
+            showMessage('Abriendo Wander. Por favor aprueba la firma de los metadatos...', 'msg-blue');
 
             try {
+                // SOLUCIÓN CRÍTICA: Creamos una transacción VACÍA (sin el buffer pesado) para que Wander no se congele
+                const transaction = await arweave.createTransaction({});
+
+                // Inyectamos únicamente las etiquetas ligeras de texto
+                transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
+                transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
+                transaction.addTag('File-Name', fileReal.name);
+
+                console.log(">>> Invocando pop-up de Wander de forma ligera...");
+                
+                // Wander abrirá la ventana instantáneamente porque no pesa nada
+                await window.arweaveWallet.sign(transaction);
+
+                showMessage('Firmado con éxito. Convirtiendo archivo a Base64...', 'msg-blue');
+                btnSubmit.innerText = "Transmitiendo a Render...";
+
+                // Leer el archivo como Base64 para mandárselo seguro al servidor puente
                 const fileReader = new FileReader();
                 fileReader.onload = async (event) => {
-                    try {
-                        const arrayBuffer = event.target.result;
-                        const dataBuffer = new Uint8Array(arrayBuffer);
+                    const base64Data = event.target.result.split(',')[1];
 
-                        // A. Crear la transacción pasando los datos binarios crudos de forma local
-                        const transaction = await arweave.createTransaction({
-                            data: dataBuffer
-                        });
+                    // Enviamos al backend: la transacción firmada y el archivo por separado
+                    const response = await fetch('/api/upload', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ 
+                            transactionData: transaction,
+                            fileBufferBase64: base64Data
+                        })
+                    });
+                    
+                    const serverData = await response.json();
 
-                        // Inyectar metadatos y etiquetas requeridas
-                        transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
-                        transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
-                        transaction.addTag('File-Name', fileReal.name);
+                    if (serverData.success) {
+                        showMessage(`🎉 ¡Completado! ID de Transacción: ${serverData.txId}`, 'msg-green');
+                        uploadForm.reset();
+                        fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
+                        fileLabel.style.color = '#94a3b8';
+                        fileLabel.style.fontWeight = '400';
+                        calcSize.value = '';
+                        calcRes.innerText = "0.000000";
 
-                        console.log(">>> Invocando ventana emergente de Wander...");
-
-                        // B. FORMA CORRECTA ACTUAL: Se llama al método sign directamente desde el objeto inyectado window
-                        await window.arweaveWallet.sign(transaction);
-
-                        showMessage('Transacción firmada con Wander. Transmitiendo bytes seguros...', 'msg-blue');
-                        btnSubmit.innerText = "Transmitiendo a Render...";
-
-                        // C. Enviar la transacción estructurada y firmada a tu backend puente [1.1]
-                        const response = await fetch('/api/upload', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ transactionData: transaction })
-                        });
-                        
-                        const serverData = await response.json();
-
-                        if (serverData.success) {
-                            showMessage(`🎉 ¡Completado! Transmitido con éxito. ID: ${serverData.txId}`, 'msg-green');
-                            uploadForm.reset();
-                            fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
-                            fileLabel.style.color = '#94a3b8';
-                            fileLabel.style.fontWeight = '400';
-                            calcSize.value = '';
-                            calcRes.innerText = "0.000000";
-
-                            setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
-                        } else {
-                            showMessage(`❌ Error en transmisión: ${serverData.error}`, 'msg-red');
-                        }
-                    } catch (err) {
-                        showMessage(`❌ Error de Wander: ${err.message}`, 'msg-red');
-                    } finally {
-                        btnSubmit.disabled = false;
-                        btnSubmit.innerText = "Subir a la Red Principal";
+                        setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
+                    } else {
+                        showMessage(`❌ Error: ${serverData.error}`, 'msg-red');
                     }
                 };
-                
-                fileReader.readAsArrayBuffer(fileReal);
-                
+                fileReader.readAsDataURL(fileReal); // Lee el archivo de forma asíncrona
             } catch (err) {
-                showMessage(`❌ Fallo al procesar archivo temporal`, 'msg-red');
+                showMessage(`❌ Error de Wander: ${err.message}`, 'msg-red');
                 btnSubmit.disabled = false;
                 btnSubmit.innerText = "Subir a la Red Principal";
             }
@@ -341,11 +333,9 @@
             if (!userAddress) return;
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
-            
             try {
                 const response = await fetch('/api/files/' + userAddress);
                 const data = await response.json();
-                
                 if (data.success && data.files.length > 0) {
                     data.files.forEach(file => {
                         const tr = document.createElement('tr');
@@ -367,13 +357,12 @@
                 }
             } catch (err) {
                 filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-rose-400 py-8">Error al cargar la lista.</td></tr>`;
-            } finally {
-                loadingList.style.display = 'none';
-            }
+            } finally { loadingList.style.display = 'none'; }
         }
 
         document.getElementById('btnRefresh').addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
     </script>
 </body>
 </html>
+
 
