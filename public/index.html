@@ -233,11 +233,106 @@
                 console.error("Error calculando tarifa:", err);
             }
         }
-        // 4. DETECTAR TAMAÑO CON ÍNDICE CORREGIDO Y CONFIGURAR CALCULADORA
+    <!-- Lógica de Frontend - Bloque A -->
+    <script>
+        const arweave = Arweave.init({
+            host: 'arweave.net',
+            port: 443,
+            protocol: 'https'
+        });
+
+        const btnConnect = document.getElementById('btnConnect');
+        const walletLabel = document.getElementById('walletLabel');
+        const walletIcon = document.getElementById('walletIcon');
+        const addressBox = document.getElementById('addressBox');
+        const txtAddress = document.getElementById('txtAddress');
+        
+        const fileInput = document.getElementById('fileInput');
+        const fileLabel = document.getElementById('fileLabel');
+        const uploadForm = document.getElementById('uploadForm');
+        const statusMessage = document.getElementById('statusMessage');
+        const btnSubmit = document.getElementById('btnSubmit');
+        const btnRefresh = document.getElementById('btnRefresh');
+        const filesTableBody = document.getElementById('filesTableBody');
+        const loadingList = document.getElementById('loadingList');
+
+        const txtBalance = document.getElementById('txtBalance');
+        const calcSize = document.getElementById('calcSize');
+        const calcUnit = document.getElementById('calcUnit');
+        const calcRes = document.getElementById('calcRes');
+
+        let userAddress = "";
+
+        // 1. CONECTAR EXTENSIÓN WANDER (ARCONNECT)
+        btnConnect.addEventListener('click', async (e) => {
+            e.preventDefault();
+            
+            if (!window.arweaveWallet) {
+                alert("Por favor instala la extensión de la billetera Wander (ArConnect) en tu navegador.");
+                window.open("https://wander.app", "_blank");
+                return;
+            }
+
+            walletLabel.innerText = "Conectando...";
+            try {
+                await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
+                userAddress = await window.arweaveWallet.getActiveAddress();
+                
+                walletLabel.innerText = "Wander Conectado";
+                btnConnect.style.background = "linear-gradient(to right, #061c11, #020617)";
+                btnConnect.style.borderColor = "#053b1b";
+                walletLabel.style.color = "#34d399";
+                walletIcon.innerText = "✅";
+                txtAddress.innerText = userAddress;
+                addressBox.style.display = "block";
+                
+                btnSubmit.disabled = false;
+                btnSubmit.innerText = "Subir a la Red Principal";
+                btnSubmit.style.cursor = "pointer";
+                btnSubmit.style.opacity = "1";
+
+                checkArweaveBalance();
+                loadFiles();
+            } catch (err) {
+                console.error(err);
+                walletLabel.innerText = "Error de Conexión";
+                walletIcon.innerText = "❌";
+            }
+        });
+
+        // 2. Consultar balance real On-Chain de la wallet conectada
+        async function checkArweaveBalance() {
+            if (!userAddress) return;
+            try {
+                const winstonBalance = await arweave.wallets.getBalance(userAddress);
+                const arBalance = arweave.ar.winstonToAr(winstonBalance);
+                txtBalance.innerText = parseFloat(arBalance).toFixed(6);
+            } catch (err) {
+                console.error("Error consultando balance:", err);
+            }
+        }
+
+        // 3. Consultar precio de red estimado (Llama al backend puente)
+        async function calculateCost(totalBytes) {
+            if (!totalBytes || totalBytes <= 0) {
+                calcRes.innerText = "0.000000";
+                return;
+            }
+            try {
+                const response = await fetch("/api/price/" + totalBytes);
+                const data = await response.json();
+                if (data.success) {
+                    calcRes.innerText = parseFloat(data.ar).toFixed(6);
+                }
+            } catch (err) {
+                console.error("Error calculando tarifa:", err);
+            }
+        }
+        // 4. DETECTAR TAMAÑO USANDO ÍNDICE INDIVIDUAL CERO
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0]; // CORRECCIÓN DEFINITIVA: Forzamos la lectura del elemento cero [1.1]
-                console.log(">>> [DEBUG 1] Archivo seleccionado:", file.name, "Bytes:", file.size);
+                const file = e.target.files[0]; // CORRECCIÓN CLAVE: Extraemos el archivo real índice 0
+                console.log(">>> [DEBUG 1] Archivo detectado:", file.name, "Bytes:", file.size);
                 
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
@@ -259,10 +354,10 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA: LLAMADO A COORDENADAS WANDER Y DEBUG COMPLETO
+        // 5. SUBIDA ASÍNCRONA CORREGIDA PASANDO EL BINARIO INDEPENDIENTE CERO
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            console.log(">>> [DEBUG 2] Formulario enviado. Cuenta activa:", userAddress);
+            console.log(">>> [DEBUG 2] Formulario enviado con la cuenta activa:", userAddress);
 
             if (!userAddress) {
                 alert("Por favor conecta tu billetera Wander primero.");
@@ -270,33 +365,32 @@
             }
 
             if (fileInput.files.length === 0) return;
-            const fileReal = fileInput.files[0]; // CORRECCIÓN DEFINITIVA: Elemento cero [1.1]
-            console.log(">>> [DEBUG 3] Procesando buffer para:", fileReal.name);
+            const fileReal = fileInput.files[0]; // CORRECCIÓN CLAVE: Pasamos el binario real índice 0
+            console.log(">>> [DEBUG 3] Procesando buffer e inyectando etiquetas para:", fileReal.name);
             
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Abriendo Wander...";
             showMessage('Abriendo Wander. Por favor aprueba la firma...', 'msg-blue');
 
             try {
-                console.log(">>> [DEBUG 4] Creando transaccion base vacia...");
+                console.log(">>> [DEBUG 4] Estructurando transacción base limpia...");
                 const transaction = await arweave.createTransaction({});
 
                 transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
                 transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                 transaction.addTag('File-Name', fileReal.name);
 
-                console.log(">>> [DEBUG 5] Lanzando ventana emergente window.arweaveWallet.sign...");
+                console.log(">>> [DEBUG 5] Lanzando ventana de extensión window.arweaveWallet.sign...");
                 await window.arweaveWallet.sign(transaction);
 
-                console.log(">>> [DEBUG 6] ¡Firmado por Wander con éxito! ID:", transaction.id);
+                console.log(">>> [DEBUG 6] Firma completada. Inicializando codificación Base64...");
                 showMessage('Firmado con éxito. Convirtiendo archivo a Base64...', 'msg-blue');
 
                 const fileReader = new FileReader();
                 fileReader.onload = async (event) => {
-                    console.log(">>> [DEBUG 7] FileReader cargo en RAM. Extrayendo Base64...");
-                    const base64Data = event.target.result.split(',')[1];
+                    console.log(">>> [DEBUG 7] Conversión completada por FileReader. Transmitiendo...");
+                    const base64Data = event.target.result.split(',')[1]; // Extraemos solo el stream de datos plano
 
-                    console.log(">>> [DEBUG 8] Transmitiendo JSON seguro a Render...");
                     const response = await fetch('/api/upload', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -307,7 +401,7 @@
                     });
                     
                     const serverData = await response.json();
-                    console.log(">>> [DEBUG 9] Respuesta del backend puente:", serverData);
+                    console.log(">>> [DEBUG 8] Respuesta final del servidor puente:", serverData);
 
                     if (serverData.success) {
                         showMessage(`🎉 ¡Completado! Transmitido con éxito. ID: ${serverData.txId}`, 'msg-green');
@@ -323,9 +417,11 @@
                         showMessage(`❌ Error: ${serverData.error}`, 'msg-red');
                     }
                 };
-                fileReader.readAsDataURL(fileReal); // Dispara la lectura asíncrona [1.1]
+                
+                fileReader.readAsDataURL(fileReal); // Dispara la lectura asíncrona pasando el binario real
+                
             } catch (err) {
-                console.error(">>> [DEBUG CRÍTICO] El proceso falló:", err);
+                console.error(">>> [DEBUG CRÍTICO] Captura de excepción en Frontend:", err);
                 showMessage(`❌ Error de Wander: ${err.message}`, 'msg-red');
                 btnSubmit.disabled = false;
                 btnSubmit.innerText = "Subir a la Red Principal";
