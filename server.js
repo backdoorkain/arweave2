@@ -35,8 +35,8 @@ try {
     console.error(">>> ERROR: El formato del JSON en la variable ARWEAVE_WALLET es inválido.");
 }
 
-app.use(express.use ? express.json() : express.json()); // Middleware para JSON
-app.use(express.static('public'));
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 
 // --- RUTA 1: SUBIR ARCHIVO ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
