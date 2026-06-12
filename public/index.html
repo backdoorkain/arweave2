@@ -3,8 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arweave Explorer & Uploader (Raw Edition)</title>
-    <!-- Estilos Web3 integrados directamente para evitar bloqueos del navegador -->
+    <title>Arweave Explorer & Uploader (Client-Side Edition)</title>
+    <!-- Inyección oficial del SDK de Arweave para el Frontend -->
+    <script src="https://unpkg.com"></script>
+    
     <style>
         body { background-color: #020617; color: #f8fafc; font-family: system-ui, sans-serif; margin: 0; padding: 0; min-height: 100vh; }
         .container { max-width: 1024px; margin: 0 auto; padding: 24px; }
@@ -12,18 +14,20 @@
         h1 { font-size: 2.25rem; font-weight: 800; margin: 0; background: linear-gradient(to right, #fbbf24, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
         .grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
         @media (min-width: 768px) { .grid { grid-template-columns: 1fr 1fr; } }
-        .card { background-color: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: space-between; }
-        h2 { font-size: 1.25rem; font-weight: 700; margin-top: 0; margin-bottom: 8px; display: flex; items-center: center; gap: 8px; }
-        .subtitle { color: #94a3b8; font-size: 0.75rem; margin: 0 0 16px 0; }
-        .balance-box { background-color: #020617; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; text-align: center; margin: 8px 0; }
-        .balance-amount { font-size: 1.875rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
+        .card { background-color: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: space-between; gap: 16px; }
+        h2 { font-size: 1.25rem; font-weight: 700; margin-top: 0; margin-bottom: 4px; display: flex; items-center: center; gap: 8px; }
+        .subtitle { color: #94a3b8; font-size: 0.75rem; margin: 0 0 12px 0; }
+        .balance-box { background-color: #020617; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; text-align: center; margin: 4px 0; }
+        .balance-amount { font-size: 1.6rem; font-family: monospace; font-weight: 700; color: #fbbf24; word-break: break-all; }
         .balance-label { font-size: 0.75rem; color: #64748b; block: block; margin-top: 4px; font-weight: 650; text-transform: uppercase; }
-        .input-group { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
+        .input-group { display: flex; flex-direction: column; gap: 12px; margin-top: 8px; }
         input, select { width: 100%; background-color: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 10px 16px; font-size: 0.875rem; color: #f8fafc; outline: none; box-sizing: border-box; }
         input:focus, select:focus { border-color: #fbbf24; }
         .btn { width: 100%; border-radius: 12px; font-weight: 600; padding: 12px 16px; font-size: 1rem; cursor: pointer; transition: all 0.2s; box-sizing: border-box; border: 1px solid transparent; }
         .btn-amber { background: linear-gradient(to right, #f59e0b, #ea580c); color: #ffffff; box-shadow: 0 10px 15px -3px rgba(234,88,12,0.15); }
         .btn-amber:hover { background: linear-gradient(to right, #d97706, #ca8a04); }
+        .btn-slate { background: linear-gradient(to right, #1e293b, #0f172a); color: #e2e8f0; border-color: #334155; }
+        .btn-slate:hover { background: #334155; }
         .dropzone { border: 2px dashed #334155; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; position: relative; background-color: rgba(2,6,23,0.5); }
         .dropzone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
         .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 0.875rem; font-weight: 550; display: none; }
@@ -39,32 +43,44 @@
         tr.th-row { background-color: #020617; border-bottom: 1px solid #334155; color: #94a3b8; }
         th, td { padding: 16px; }
         td { border-bottom: 1px solid rgba(51,65,85,0.4); color: #e2e8f0; }
-        .btn-download { background-color: #1e293b; border: 1px solid #334155; color: #fbbf24; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: 600; }
+        .btn-download { background-color: #1e293b; border: 1px solid #334155; color: #fbbf24; padding: 6px 12px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 0.75rem; }
     </style>
 </head>
 <body>
     <div class="container">
         <header>
             <h1>Arweave Permaweb Box</h1>
-            <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Almacenamiento permanente directo en la Blockchain al costo real de red</p>
+            <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Firma criptográfica local en el navegador para máxima seguridad sin guardar llaves en servidores</p>
         </header>
         <!-- Bloque Principal de Operaciones -->
         <div class="grid">
             
-            <!-- Panel Izquierdo: Saldo y Calculadora Directa (Arweave Fees Engine) -->
+            <!-- Panel Izquierdo: Importación Segura y Calculadora -->
             <div class="card">
                 <div>
-                    <h2>💰 Tu Saldo On-Chain</h2>
-                    <p class="subtitle">Fondos reales disponibles en tu billetera de Arweave</p>
-                    <div class="balance-box">
-                        <div id="txtBalance" class="balance-amount">5.240438</div>
-                        <span class="balance-label">AR TOKENS</span>
+                    <h2>🔑 Llave Criptográfica Local</h2>
+                    <p class="subtitle">Importa tu wallet.json. No se guardará en internet, se usa solo en RAM.</p>
+                    
+                    <div class="dropzone" style="padding: 16px; border-color: #475569;">
+                        <input type="file" id="walletInput" accept=".json">
+                        <div id="walletIcon" style="font-size: 1.5rem; margin-bottom: 4px;">📥</div>
+                        <p id="walletLabel" style="color: #94a3b8; font-size: 0.75rem; margin: 0;">Seleccionar wallet.json</p>
+                    </div>
+
+                    <div id="addressBox" class="balance-box" style="margin-top: 12px; display: none;">
+                        <div id="txtAddress" class="balance-amount" style="font-size: 0.85rem; color: #a7f3d0; word-break: break-all;">No conectada</div>
+                        <span class="balance-label" style="color: #34d399;">Dirección Activa</span>
+                    </div>
+
+                    <div class="balance-box" style="margin-top: 12px;">
+                        <div id="txtBalance" class="balance-amount">0.000000</div>
+                        <span class="balance-label">AR TOKENS ON-CHAIN</span>
                     </div>
                 </div>
 
-                <div style="border-top: 1px dashed #334155; padding-top: 16px; margin-top: 16px;">
+                <div style="border-top: 1px dashed #334155; padding-top: 12px;">
                     <h2>🧮 Calculadora de Costos</h2>
-                    <p class="subtitle">Estima la tarifa oficial de almacenamiento de la red en tiempo real</p>
+                    <p class="subtitle">Tarifa oficial de almacenamiento de la red en tiempo real</p>
                     
                     <div class="input-group">
                         <input type="number" id="calcSize" placeholder="Tamaño detectado" readonly style="background-color: #0b0f19; color: #94a3b8; cursor: not-allowed;">
@@ -75,18 +91,17 @@
                         </select>
                     </div>
 
-                    <div class="balance-box" style="margin-top: 16px; background-color: #090d16; border-color: #1e293b;">
-                        <!-- Inyectamos los identificadores exactos del motor oficial para ver los datos -->
-                        <div id="calcRes" class="balance-amount" style="color: #38bdf8; font-size: 1.5rem;">0.000000</div>
+                    <div class="balance-box" style="margin-top: 12px; background-color: #090d16; border-color: #1e293b;">
+                        <div id="calcRes" class="balance-amount" style="color: #38bdf8; font-size: 1.3rem;">0.000000</div>
                         <span class="balance-label" style="color: #94a3b8;">AR ESTIMADOS</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Panel Derecho: Formulario de Subida Directa -->
+            <!-- Panel Derecho: Zona de Carga de Archivos -->
             <div class="card">
                 <h2>⚡ Sube un nuevo archivo</h2>
-                <p class="subtitle">Los archivos medianos o grandes pagan la tarifa exacta de almacenamiento lineal</p>
+                <p class="subtitle">El archivo será firmado criptográficamente por tu navegador antes de enviarse</p>
                 
                 <form id="uploadForm" style="display: flex; flex-direction: column; gap: 16px; margin-top: 8px;">
                     <div class="dropzone">
@@ -95,7 +110,7 @@
                         <p id="fileLabel" style="color: #94a3b8; font-size: 0.875rem; margin: 0;">Arrastra tu archivo aquí o haz clic para buscar</p>
                     </div>
                     
-                    <button type="submit" id="btnSubmit" class="btn btn-amber">Subir a la Red Principal</button>
+                    <button type="submit" id="btnSubmit" class="btn btn-amber" disabled style="cursor: not-allowed; opacity: 0.5;">Importa tu llave para subir</button>
                 </form>
                 
                 <div id="statusMessage" class="msg"></div>
@@ -121,14 +136,28 @@
                         </tr>
                     </thead>
                     <tbody id="filesTableBody">
-                        <!-- Los datos se inyectan dinámicamente -->
+                        <tr><td colspan="3" class="text-center text-slate-500 py-8">Importa tu llave para consultar el historial de la blockchain.</td></tr>
                     </tbody>
                 </table>
             </div>
         </section>
     </div>
-    <!-- Lógica de Frontend -->
+    <!-- Lógica de Frontend - Bloque A -->
     <script>
+        // Inicializar Arweave local usando el SDK inyectado por CDN
+        const arweave = Arweave.init({
+            host: 'arweave.net',
+            port: 443,
+            protocol: 'https'
+        });
+
+        // Elementos de la interfaz
+        const walletInput = document.getElementById('walletInput');
+        const walletLabel = document.getElementById('walletLabel');
+        const walletIcon = document.getElementById('walletIcon');
+        const addressBox = document.getElementById('addressBox');
+        const txtAddress = document.getElementById('txtAddress');
+        
         const fileInput = document.getElementById('fileInput');
         const fileLabel = document.getElementById('fileLabel');
         const uploadForm = document.getElementById('uploadForm');
@@ -143,18 +172,59 @@
         const calcUnit = document.getElementById('calcUnit');
         const calcRes = document.getElementById('calcRes');
 
+        // Variables de estado local (RAM del Navegador)
+        let jwkWallet = null;
+        let userAddress = "";
+
+        // 1. IMPORTAR BILLETERA LOCAL EN RAM
+        walletInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                const file = e.target.files[0];
+                const reader = new FileReader();
+
+                walletLabel.innerText = "Leyendo llave...";
+                
+                reader.onload = async (event) => {
+                    try {
+                        jwkWallet = JSON.parse(event.target.result);
+                        userAddress = await arweave.wallets.jwkToAddress(jwkWallet);
+                        
+                        walletLabel.innerText = "Llave Importada";
+                        walletLabel.style.color = "#34d399";
+                        walletIcon.innerText = "✅";
+                        txtAddress.innerText = userAddress;
+                        addressBox.style.display = "block";
+                        
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerText = "Subir a la Red Principal";
+                        btnSubmit.style.cursor = "pointer";
+                        btnSubmit.style.opacity = "1";
+
+                        checkArweaveBalance();
+                        loadFiles();
+                    } catch (err) {
+                        alert("❌ Error al procesar el archivo JSON de la billetera.");
+                        walletLabel.innerText = "Seleccionar wallet.json";
+                        walletIcon.innerText = "📥";
+                    }
+                };
+                reader.readAsText(file);
+            }
+        });
+
+        // 2. Consultar balance real On-Chain de la wallet local
         async function checkArweaveBalance() {
+            if (!userAddress) return;
             try {
-                const response = await fetch('/api/balance');
-                const data = await response.json();
-                if (data.success) {
-                    txtBalance.innerText = parseFloat(data.balance).toFixed(6);
-                }
+                const winstonBalance = await arweave.wallets.getBalance(userAddress);
+                const arBalance = arweave.ar.winstonToAr(winstonBalance);
+                txtBalance.innerText = parseFloat(arBalance).toFixed(6);
             } catch (err) {
-                console.error("Error al obtener balance:", err);
+                console.error("Error consultando balance:", err);
             }
         }
 
+        // 3. Consultar precio de red estimado (Llama a tu backend local)
         async function calculateCost(totalBytes) {
             if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
@@ -167,13 +237,12 @@
                     calcRes.innerText = parseFloat(data.ar).toFixed(6);
                 }
             } catch (err) {
-                console.error("Error al calcular tarifa:", err);
-                calcRes.innerText = "Error";
+                console.error("Error calculando tarifa:", err);
             }
         }
-
+        // Detectar tamaño del archivo al seleccionarlo automáticamente
         fileInput.addEventListener('change', (e) => {
-            if(e.target.files.length > 0) {
+            if (e.target.files.length > 0) {
                 const file = e.target.files[0];
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
@@ -195,75 +264,115 @@
             }
         });
 
+        // 4. CREAR, FIRMAR LOCALMENTE EN MEMORIA Y ENVIAR AL SERVIDOR
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            if (!jwkWallet) {
+                alert("Por favor importa tu wallet.json primero.");
+                return;
+            }
 
+            const file = fileInput.files[0];
             btnSubmit.disabled = true;
-            btnSubmit.innerText = "Firmando y enviando transacción AR...";
-            showMessage('Procesando archivo en el servidor y transmitiendo a la blockchain...', 'msg-blue');
-            
+            btnSubmit.innerText = "Firmando localmente en RAM...";
+            showMessage('Leyendo archivo y calculando firmas criptográficas en tu navegador...', 'msg-blue');
+
             try {
-                const response = await fetch('/api/upload', { method: 'POST', body: formData });
-                const data = await response.json();
-                
-                if (data.success) {
-                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}.`, 'msg-green');
-                    uploadForm.reset();
-                    fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
-                    fileLabel.style.color = '#94a3b8';
-                    fileLabel.style.fontWeight = '400';
-                    calcSize.value = '';
-                    calcRes.innerText = "0.000000";
-                    
-                    setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
-                } else {
-                    showMessage(`❌ Error: ${data.error}`, 'msg-red');
-                }
+                const fileReader = new FileReader();
+                fileReader.onload = async (event) => {
+                    try {
+                        const arrayBuffer = event.target.result;
+                        const dataBuffer = new Uint8Array(arrayBuffer);
+
+                        const priceResponse = await fetch("/api/price/" + dataBuffer.length);
+                        const priceData = await priceResponse.json();
+                        
+                        if (!priceData.success) throw new Error("No se pudo estimar la recompensa.");
+
+                        const baseWinston = arweave.ar.arToWinston(priceData.ar);
+                        const boostedReward = (BigInt(baseWinston) * 14n / 10n).toString();
+
+                        // Crear la estructura de la transacción de forma local
+                        const transaction = await arweave.createTransaction({
+                            data: dataBuffer,
+                            reward: boostedReward
+                        }, jwkWallet);
+
+                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+                        transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
+                        transaction.addTag('File-Name', file.name);
+
+                        // EJECUCIÓN CRÍTICA: Tu clave privada firma digitalmente dentro de tu RAM
+                        await arweave.transactions.sign(transaction, jwkWallet);
+
+                        showMessage('Transacción firmada. Transmitiendo bytes seguros al backend...', 'msg-blue');
+                        btnSubmit.innerText = "Transmitiendo a Render...";
+
+                        // Mandar la transacción empaquetada lista al backend puente
+                        const response = await fetch('/api/upload', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ transactionData: transaction })
+                        });
+                        
+                        const serverData = await response.json();
+
+                        if (serverData.success) {
+                            showMessage(`🎉 ¡Completado! Transmitido con éxito. ID: ${serverData.txId}`, 'msg-green');
+                            uploadForm.reset();
+                            fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
+                            fileLabel.style.color = '#94a3b8';
+                            fileLabel.style.fontWeight = '400';
+                            calcSize.value = '';
+                            calcRes.innerText = "0.000000";
+
+                            setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
+                        } else {
+                            showMessage(`❌ Error en transmisión: ${serverData.error}`, 'msg-red');
+                        }
+                    } catch (err) {
+                        showMessage(`❌ Error criptográfico: ${err.message}`, 'msg-red');
+                    } finally {
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerText = "Subir a la Red Principal";
+                    }
+                };
+                fileReader.readAsArrayBuffer(file);
             } catch (err) {
-                showMessage(`❌ Error de conexión al servidor`, 'msg-red');
-            } finally {
+                showMessage(`❌ Fallo al procesar archivo temporal`, 'msg-red');
                 btnSubmit.disabled = false;
                 btnSubmit.innerText = "Subir a la Red Principal";
             }
         });
 
-        // SOLUCIÓN DEFINITIVA: Inyección de variables usando comillas invertidas literales (backticks)
+        // 5. Cargar lista de archivos filtrada por la billetera importada activa
         async function loadFiles() {
+            if (!userAddress) return;
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
             
             try {
-                const response = await fetch('/api/files');
+                const response = await fetch('/api/files/' + userAddress);
                 const data = await response.json();
                 
                 if (data.success && data.files.length > 0) {
                     data.files.forEach(file => {
                         const tr = document.createElement('tr');
                         tr.className = "data-row";
-                        
-                        // CORRECCIÓN CLAVE: Usamos comillas invertidas ` para que JavaScript reemplace las variables en vivo
                         tr.innerHTML = `
-                            <td style="padding: 16px; font-weight: 500; max-wxl: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">` + file.name + `</td>
+                            <td style="padding: 16px; font-weight: 500; max-width: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">` + file.name + `</td>
                             <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">` + file.type + `</td>
                             <td style="padding: 16px; text-align: right;">
                                 <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                                    <!-- Botón de Auditoría de Transacción en ViewBlock -->
-                                    <a href="` + file.txUrl + `" target="_blank" class="btn-download" style="color: #60a5fa; border-color: rgba(51,65,85,0.8);">
-                                        🔍 Ver TX
-                                    </a>
-                                    <!-- Botón de Descarga Directa del archivo con la diagonal corregida -->
-                                    <a href="` + file.url + `" target="_blank" class="btn-download">
-                                        ⬇️ Ver Archivo
-                                    </a>
+                                    <a href="` + file.txUrl + `" target="_blank" class="btn-download" style="color: #60a5fa; border-color: rgba(51,65,85,0.8);">🔍 Ver TX</a>
+                                    <a href="` + file.url + `" target="_blank" class="btn-download">⬇️ Ver Archivo</a>
                                 </div>
                             </td>
                         `;
                         filesTableBody.appendChild(tr);
                     });
                 } else {
-                    filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-slate-500 py-8">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
+                    filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-slate-500 py-8">No se encontraron archivos subidos por esta billetera todavía.</td></tr>`;
                 }
             } catch (err) {
                 filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-rose-400 py-8">Error al cargar la lista.</td></tr>`;
@@ -272,16 +381,7 @@
             }
         }
 
-        function showMessage(text, className) {
-            statusMessage.innerText = text;
-            statusMessage.className = `msg ${className}`;
-            statusMessage.style.display = 'block';
-        }
-
         btnRefresh.addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
-        window.addEventListener('DOMContentLoaded', () => { checkArweaveBalance(); loadFiles(); });
     </script>
 </body>
 </html>
-
-
