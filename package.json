@@ -1,0 +1,14 @@
+{
+  "name": "arweave-uploader",
+  "version": "1.0.0",
+  "description": "Sitio básico para interactuar con Arweave",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "arweave": "^1.15.1",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1"
+  }
+}
