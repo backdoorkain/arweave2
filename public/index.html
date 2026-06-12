@@ -286,8 +286,10 @@
                 transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                 transaction.addTag('File-Name', fileTarget.name);
 
-                console.log(">>> [DEBUG 5] Lanzando ventana de extensión window.arweaveWallet.sign...");
-                await window.arweaveWallet.sign(transaction);
+                // CÓDIGO CORREGIDO (INVOCA CORRECTAMENTE A WANDER)
+                console.log(">>> [DEBUG 5] Lanzando ventana de extensión mediante arweave-js...");
+                await arweave.transactions.sign(transaction, "use_wallet");
+
 
                 console.log(">>> [DEBUG 6] Firma de metadatos correcta. Inicializando FileReader en RAM...");
                 showMessage('Firmado con éxito. Convirtiendo archivo a Base64...', 'msg-blue');
