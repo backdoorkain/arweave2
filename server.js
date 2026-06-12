@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
 // El resto de recursos se sirven de forma estática normal
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- RUTA 1: TRANSMITIR TRANSACCIÓN FIRMADA ---
+// --- RUTA 1 CORREGIDA EN SERVER.JS ---
 app.post('/api/upload', async (req, res) => {
     try {
         const { transactionData, fileBufferBase64 } = req.body;
@@ -46,12 +46,16 @@ app.post('/api/upload', async (req, res) => {
             return res.status(400).json({ error: 'Faltan datos de la transacción o el archivo.' });
         }
 
+        // Reconstrucción íntegra desde el JSON estructurado del cliente
         const transaction = arweave.transactions.fromRaw(transactionData);
+        
+        // Adjuntar el archivo real en formato Buffer binario
         const fileBuffer = Buffer.from(fileBufferBase64, 'base64');
         transaction.set('data', fileBuffer);
 
         console.log(`>>> Ensamblando binario: ${fileBuffer.length} bytes. ID: ${transaction.id}`);
-
+        
+        // Transmitir a los nodos de la red Arweave
         const response = await arweave.transactions.post(transaction);
         console.log(`>>> Respuesta de Arweave Network: Código ${response.status}`);
 
