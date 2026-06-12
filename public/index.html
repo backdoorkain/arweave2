@@ -201,11 +201,16 @@
                 btnSubmit.innerText = "Subir a la Red Principal";
                 btnSubmit.style.cursor = "pointer";
                 btnSubmit.style.opacity = "1";
-                checkArweaveBalance();
-                loadFiles();
-            }
-            catch (err) {
-                console.error("Error exacto capturado:", err); // Esto nos dirá el mensaje real si vuelve a fallar
+                
+                // CORRECCIÓN CRÍTICA: Le damos un respiro milimétrico a la extensión 
+                // para que procese el estado de conexión antes de interrogar por el balance
+                setTimeout(() => {
+                    checkArweaveBalance();
+                    loadFiles();
+                }, 300);
+
+            } catch (err) {
+                console.error("Error exacto capturado:", err);
                 walletLabel.innerText = "Error de Conexión";
                 walletIcon.innerText = "";
             }
@@ -213,8 +218,11 @@
 
         // 2. Consultar balance real On-Chain de la wallet conectada
         async function checkArweaveBalance() {
-            if (!userAddress) return;
+            if (!userAddress || userAddress.trim() === "") return;
             try {
+                console.log(">>> Consultando balance en la red para:", userAddress);
+                
+                // Usamos el método nativo directo del SDK para aislar la petición HTTP
                 const winstonBalance = await arweave.wallets.getBalance(userAddress);
                 const arBalance = arweave.ar.winstonToAr(winstonBalance);
                 txtBalance.innerText = parseFloat(arBalance).toFixed(6);
@@ -239,6 +247,7 @@
                 console.error("Error calculando tarifa:", err);
             }
         }
+
         // 4. DETECTAR TAMAÑO Y CONFIGURAR CALCULADORA AUTOMÁTICA
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
