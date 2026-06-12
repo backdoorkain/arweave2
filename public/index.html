@@ -168,7 +168,7 @@
 
         let userAddress = "";
 
-        // 1. CONECTAR EXTENSIÓN WANDER (ARCONNECT) CON PERMISOS AMPLIADOS
+        // 1. CONECTAR EXTENSIÓN WANDER (ARCONNECT)
         btnConnect.addEventListener('click', async (e) => {
             e.preventDefault();
             
@@ -177,23 +177,23 @@
                 window.open("https://wander.app", "_blank");
                 return;
             }
-
             walletLabel.innerText = "Conectando...";
+            
             try {
-                // Inyectamos "SIGN_DATA" de forma explícita en la solicitud inicial de permisos
+                // LISTA DE PERMISOS OFICIALES Y ESTÁNDAR PARA WANDER
                 await window.arweaveWallet.connect([
-                    "ACCESS_ADDRESS", 
-                    "SIGN_TRANSACTION", 
-                    "ACCESS_BALANCE"
+                    "ACCESS_ADDRESS",
+                    "ACCESS_BALANCE",
+                    "SIGN_TRANSACTION"
                 ]);
-
+                
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 walletLabel.innerText = "Wander Conectado";
                 btnConnect.style.background = "linear-gradient(to right, #061c11, #020617)";
                 btnConnect.style.borderColor = "#053b1b";
                 walletLabel.style.color = "#34d399";
-                walletIcon.innerText = "✅";
+                walletIcon.innerText = "";
                 txtAddress.innerText = userAddress;
                 addressBox.style.display = "block";
                 
@@ -201,13 +201,12 @@
                 btnSubmit.innerText = "Subir a la Red Principal";
                 btnSubmit.style.cursor = "pointer";
                 btnSubmit.style.opacity = "1";
-
                 checkArweaveBalance();
                 loadFiles();
             } catch (err) {
-                console.error(err);
+                console.error("Error exacto capturado:", err); // Esto nos dirá el mensaje real si vuelve a fallar
                 walletLabel.innerText = "Error de Conexión";
-                walletIcon.innerText = "❌";
+                walletIcon.innerText = "";
             }
         });
 
