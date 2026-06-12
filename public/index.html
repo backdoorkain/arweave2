@@ -156,35 +156,28 @@
             }
         }
 
-        // 2. Lógica de la calculadora modificada para llamar a TU propio backend (EVITA EL ERROR CORS)
-        function calculateCost(totalBytes) {
+        // 2. Lógica de la calculadora (Llama a tu backend local)
+        async function calculateCost(totalBytes) {
             if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
                 return;
             }
-
-            // CORRECCIÓN CRÍTICA: Apunta a tu servidor de Render local en lugar de la URL externa bloqueada
-            fetch("/api/price/" + totalBytes, {
-                "method": "GET"
-            }).then(function(response) {
-                return response.json();
-            }).then(function(data) {
+            try {
+                const response = await fetch("/api/price/" + totalBytes);
+                const data = await response.json();
                 if (data.success) {
-                    // Muestra el valor que tu backend ya convirtió limpiamente a AR tokens
                     calcRes.innerText = parseFloat(data.ar).toFixed(6);
-                } else {
-                    calcRes.innerText = "Error";
                 }
-            }).catch(function(error) {
-                console.error("Error en comunicación con backend:", error);
+            } catch (err) {
+                console.error("Error al calcular tarifa:", err);
                 calcRes.innerText = "Error";
-            });
+            }
         }
 
-        // Detectar automáticamente el tamaño del archivo
+        // Detectar automáticamente el tamaño del archivo real al seleccionarlo
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
-                const file = e.target.files[0]; // Acceso estricto al archivo real
+                const file = e.target.files[0]; // <-- Acceso correcto al archivo individual [0]
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -201,7 +194,6 @@
                     calcUnit.value = "MB";
                 }
 
-                // Disparar la consulta al backend
                 calculateCost(sizeInBytes);
             }
         });
@@ -209,8 +201,10 @@
         // Enviar formulario de subida a Arweave Raw
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            
+            // CORRECCIÓN TÉCNICA CRÍTICA: Enviamos el binario indexado [0] para que Multer lo procese bien
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', fileInput.files[0]); 
 
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando y enviando transacción AR...";
@@ -221,7 +215,7 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showMessage(`🎉 ¡Enviado con éxito! ID: ${data.txId}. Aparecerá en la lista tras confirmarse el bloque.`, 'msg-green');
+                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}.`, 'msg-green');
                     uploadForm.reset();
                     fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
                     fileLabel.style.color = '#94a3b8';
@@ -245,11 +239,9 @@
         async function loadFiles() {
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
-            
             try {
                 const response = await fetch('/api/files');
                 const data = await response.json();
-                
                 if (data.success && data.files.length > 0) {
                     data.files.forEach(file => {
                         const tr = document.createElement('tr');
@@ -258,7 +250,7 @@
                             <td style="padding: 16px; font-weight: 500; max-w-[220px]; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${file.name}</td>
                             <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">${file.type}</td>
                             <td style="padding: 16px; text-align: right;">
-                                <a href="${file.url}" target="_blank" class="btn-download">⬇️ Ver archivo</a>
+                                <a href="${file.url}" target="_blank" class="btn-download">Ver archivo</a>
                             </td>
                         `;
                         filesTableBody.appendChild(tr);
@@ -273,8 +265,15 @@
             }
         }
 
-        document.getElementById('btnRefresh').addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
+        function showMessage(text, className) {
+            statusMessage.innerText = text;
+            statusMessage.className = `msg ${className}`;
+            statusMessage.style.display = 'block';
+        }
+
+        btnRefresh.addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
         window.addEventListener('DOMContentLoaded', () => { checkArweaveBalance(); loadFiles(); });
     </script>
 </body>
 </html>
+
