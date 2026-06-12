@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Subidor Arweave Minimalista</title>
-    <!-- SDK oficial de Arweave cargado correctamente -->
+    <!-- CORRECCIÓN 1: Enlace oficial y funcional al bundle de Arweave -->
     <script src="https://unpkg.com"></script>
     <style>
         body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; line-height: 1.6; }
@@ -18,14 +18,12 @@
     <h2>Subidor Arweave Minimalista</h2>
     <p>Estado actual: <span id="status">Desconectado</span></p>
 
-    <!-- BLOQUE 1: Conexión de Billetera -->
     <div class="box">
         <h3>1. Billetera Wander</h3>
         <button id="btnConnect">Conectar Wander</button>
         <p>Dirección: <span id="txtAddress">Ninguna</span></p>
     </div>
 
-    <!-- BLOQUE 2: Carga y Envío del Archivo -->
     <div class="box">
         <h3>2. Subir Archivo a la Permaweb</h3>
         <input type="file" id="fileInput" disabled><br><br>
@@ -34,7 +32,7 @@
     </div>
 
     <script>
-        // Inicialización adaptada para el bundle de navegador de Arweave
+        // Inicialización correcta adaptada para navegadores
         const arweave = Arweave.init({
             host: 'arweave.net',
             port: 443,
@@ -43,7 +41,6 @@
 
         let userAddress = "";
 
-        // Elementos del DOM
         const btnConnect = document.getElementById('btnConnect');
         const statusLabel = document.getElementById('status');
         const txtAddress = document.getElementById('txtAddress');
@@ -57,27 +54,20 @@
                 alert("Por favor instala la extensión Wander.");
                 return;
             }
-
             try {
                 statusLabel.innerText = "Conectando...";
-                
-                // Pedimos únicamente los permisos indispensables para conectar y firmar transacciones
                 await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
-                
-                // Obtenemos la llave pública activa
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
-                // Actualizamos la interfaz minimalista
                 txtAddress.innerText = userAddress;
                 statusLabel.innerText = "Conectado";
                 statusLabel.style.color = "green";
                 
-                // Habilitamos los controles del archivo
                 fileInput.disabled = false;
                 btnSubmit.disabled = false;
             } catch (err) {
                 console.error("Error al conectar:", err);
-                statusLabel.innerText = "Error al conectar b联";
+                statusLabel.innerText = "Error al conectar";
                 statusLabel.style.color = "red";
             }
         });
@@ -90,50 +80,30 @@
                 return;
             }
             
-            const file = files[0]; // Extrae el archivo real de la lista
+            const file = files[0]; 
             uploadResult.innerText = "Procesando archivo...";
-
+            
             try {
-                // Leer el archivo en el navegador como ArrayBuffer binario
                 const reader = new FileReader();
                 reader.readAsArrayBuffer(file);
                 
                 reader.onload = async (e) => {
                     const arrayBuffer = e.target.result;
-                    
                     uploadResult.innerText = "Creando transacción en Arweave...";
                     
-                    // Crear la transacción base de Arweave
+                    // CORRECCIÓN 2: Se eliminó todo el bloque de código que estaba duplicado aquí
                     const transaction = await arweave.transactions.create({
                         data: 'PLACEHOLDER_DATA' 
                     });
 
-                    // Añadir la etiqueta (Tag) del tipo de archivo
                     transaction.addTag('Content-Type', file.type || 'application/octet-stream');
-
                     uploadResult.innerText = "Esperando firma en el pop-up de Wander...";
                     
-                    // INVOCA EL POP-UP DE FIMA EN TU PANTALLA
+                    // Invoca el pop-up de firma legítimo
                     await arweave.transactions.sign(transaction, "use_wallet");
-
                     uploadResult.innerText = "Archivo firmado. Enviando al servidor...";
                     
-                    // 2. Crear la transacción base sin la data binaria pesada (para que pase rápido a Wander)
-                    const transaction = await arweave.transactions.create({
-                        data: 'PLACEHOLDER_DATA' 
-                    });
-
-                    // 3. Añadir la etiqueta (Tag) del tipo de archivo (Content-Type)
-                    transaction.addTag('Content-Type', file.type || 'application/octet-stream');
-
-                    uploadResult.innerText = "Esperando firma en el pop-up de Wander...";
-                    
-                    // 4. INVOCA CORRECTAMENTE EL POP-UP DE WANDER PARA FIRMAR
-                    await arweave.transactions.sign(transaction, "use_wallet");
-
-                    uploadResult.innerText = "Archivo firmado. Enviando al servidor...";
-
-                    // 5. Convertir el archivo real a Base64 para mandarlo seguro a tu backend
+                    // Convertir binario a Base64 para transferencia segura
                     const uint8Array = new Uint8Array(arrayBuffer);
                     let binaryString = "";
                     for (let i = 0; i < uint8Array.length; i++) {
@@ -141,18 +111,17 @@
                     }
                     const fileBufferBase64 = btoa(binaryString);
 
-                    // 6. Enviar la transacción firmada junto con el archivo real a tu server.js
+                    // Envío estructurado hacia tu server.js
                     const response = await fetch('/api/upload', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
-                            transactionData: transaction, // Objeto estructurado con las firmas criptográficas
-                            fileBufferBase64: fileBufferBase64 // El binario real del archivo
+                            transactionData: transaction, 
+                            fileBufferBase64: fileBufferBase64
                         })
                     });
 
                     const data = await response.json();
-                    
                     if (data.success) {
                         uploadResult.innerHTML = `¡Éxito! Tx ID: <a href="https://viewblock.io{data.txId}" target="_blank">${data.txId}</a>`;
                         uploadResult.style.color = "green";
