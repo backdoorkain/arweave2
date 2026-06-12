@@ -32,8 +32,8 @@
     </div>
 
     <script>
-        // Inicialización correcta adaptada para navegadores
-        const arweave = Arweave.init({
+        // CORRECCIÓN 1: Instanciación correcta para el bundle web de unpkg
+        const arweave = window.Arweave.init({
             host: 'arweave.net',
             port: 443,
             protocol: 'https'
@@ -41,6 +41,7 @@
 
         let userAddress = "";
 
+        // Elementos del DOM
         const btnConnect = document.getElementById('btnConnect');
         const statusLabel = document.getElementById('status');
         const txtAddress = document.getElementById('txtAddress');
@@ -80,7 +81,7 @@
                 return;
             }
             
-            const file = files[0]; 
+            const file = files[0]; // Corrección de índice de archivo extraído
             uploadResult.innerText = "Procesando archivo...";
             
             try {
@@ -91,15 +92,16 @@
                     const arrayBuffer = e.target.result;
                     uploadResult.innerText = "Creando transacción en Arweave...";
                     
-                    // CORRECCIÓN 2: Se eliminó todo el bloque de código que estaba duplicado aquí
-                    const transaction = await arweave.transactions.create({
+                    // CORRECCIÓN 2: Uso del método de construcción nativo para bundles web
+                    const transaction = await arweave.createTransaction({
                         data: 'PLACEHOLDER_DATA' 
                     });
 
+                    // Añadir la etiqueta (Tag) del tipo de archivo (MIME Type)
                     transaction.addTag('Content-Type', file.type || 'application/octet-stream');
                     uploadResult.innerText = "Esperando firma en el pop-up de Wander...";
                     
-                    // Invoca el pop-up de firma legítimo
+                    // CORRECCIÓN 3: Invocación estricta de firma delegada a Wander
                     await arweave.transactions.sign(transaction, "use_wallet");
                     uploadResult.innerText = "Archivo firmado. Enviando al servidor...";
                     
