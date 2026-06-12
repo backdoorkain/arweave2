@@ -73,7 +73,7 @@
             }
         });
 
-        // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO ---
+        // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO DIRECTO A LA PERMAWEB ---
         btnSubmit.addEventListener('click', async () => {
             const files = fileInput.files;
             if (files.length === 0) {
@@ -81,8 +81,9 @@
                 return;
             }
             
-            const file = files[0]; // Corrección de índice de archivo extraído
+            const file = files[0]; 
             uploadResult.innerText = "Procesando archivo...";
+            uploadResult.style.color = "blue";
             
             try {
                 const reader = new FileReader();
@@ -92,46 +93,41 @@
                     const arrayBuffer = e.target.result;
                     uploadResult.innerText = "Creando transacción en Arweave...";
                     
-                    // CORRECCIÓN 2: Uso del método de construcción nativo para bundles web
+                    // 1. Instanciamos la transacción con el binario real directo del archivo
                     const transaction = await arweave.createTransaction({
-                        data: 'PLACEHOLDER_DATA' 
+                        data: arrayBuffer 
                     });
 
-                    // Añadir la etiqueta (Tag) del tipo de archivo (MIME Type)
+                    // 2. Insertamos la etiqueta de formato
                     transaction.addTag('Content-Type', file.type || 'application/octet-stream');
-                    uploadResult.innerText = "Esperando firma en el pop-up de Wander...";
                     
-                    // CORRECCIÓN 3: Invocación estricta de firma delegada a Wander
+                    uploadResult.innerText = "Esperando aprobación en el pop-up de Wander...";
+                    
+                    // 3. Wander firma los datos reales y calcula la tarifa exacta de red
                     await arweave.transactions.sign(transaction, "use_wallet");
-                    uploadResult.innerText = "Archivo firmado. Enviando al servidor...";
                     
-                    // Convertir binario a Base64 para transferencia segura
-                    const uint8Array = new Uint8Array(arrayBuffer);
-                    let binaryString = "";
-                    for (let i = 0; i < uint8Array.length; i++) {
-                        binaryString += String.fromCharCode(uint8Array[i]);
-                    }
-                    const fileBufferBase64 = btoa(binaryString);
+                    uploadResult.innerText = "Transmitiendo archivo directamente a la Permaweb...";
 
-                    // Envío estructurado hacia tu server.js
-                    const response = await fetch('/api/upload', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            transactionData: transaction, 
-                            fileBufferBase64: fileBufferBase64
-                        })
-                    });
+                    // 4. CORRECCIÓN CLAVE: Enviamos el paquete firmado directo a Arweave desde el navegador
+                    const response = await arweave.transactions.post(transaction);
+                    console.log(">>> Código de respuesta de Arweave:", response.status);
 
-                    const data = await response.json();
-                    if (data.success) {
-                        uploadResult.innerHTML = `¡Éxito! Tx ID: <a href="https://viewblock.io{data.txId}" target="_blank">${data.txId}</a>`;
+                    // 5. Los códigos 200 (OK) o 202 (Aceptado para minar) significan éxito
+                    if (response.status === 200 || response.status === 202) {
+                        uploadResult.innerHTML = `¡Éxito total! Archivo subido. Tx ID: <a href="https://viewblock.io{transaction.id}" target="_blank">${transaction.id}</a>`;
                         uploadResult.style.color = "green";
                     } else {
-                        uploadResult.innerText = "Error en servidor: " + data.error;
+                        uploadResult.innerText = `La red Arweave rechazó el archivo. Código: ${response.status}`;
                         uploadResult.style.color = "red";
                     }
                 };
+                
+            } catch (err) {
+                console.error("Error en el proceso de subida:", err);
+                uploadResult.innerText = "Error en el proceso: " + err.message;
+                uploadResult.style.color = "red";
+            }
+        });
                 
             } catch (err) {
                 console.error("Error en el proceso de subida:", err);
