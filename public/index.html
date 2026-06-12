@@ -3,8 +3,9 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arweave Explorer & Uploader (Raw Edition)</title>
-    <!-- Estilos Web3 integrados directamente para evitar bloqueos del navegador -->
+    <title>Arweave Explorer & Uploader (Wander Edition)</title>
+    <!-- Cargamos el SDK de Arweave oficial en el navegador para construir la TX y firmar -->
+    <script src="https://unpkg.com"></script>
     <style>
         body { background-color: #020617; color: #f8fafc; font-family: system-ui, sans-serif; margin: 0; padding: 0; min-height: 100vh; }
         .container { max-width: 1024px; margin: 0 auto; padding: 24px; }
@@ -16,7 +17,7 @@
         h2 { font-size: 1.25rem; font-weight: 700; margin-top: 0; margin-bottom: 8px; display: flex; items-center: center; gap: 8px; }
         .subtitle { color: #94a3b8; font-size: 0.75rem; margin: 0 0 16px 0; }
         .balance-box { background-color: #020617; padding: 16px; border-radius: 12px; border: 1px solid #1e293b; text-align: center; margin: 8px 0; }
-        .balance-amount { font-size: 1.875rem; font-family: monospace; font-weight: 700; color: #fbbf24; }
+        .balance-amount { font-size: 1.875rem; font-family: monospace; font-weight: 700; color: #fbbf24; overflow: hidden; text-overflow: ellipsis; }
         .balance-label { font-size: 0.75rem; color: #64748b; block: block; margin-top: 4px; font-weight: 650; text-transform: uppercase; }
         .input-group { display: flex; flex-direction: column; gap: 12px; margin-top: 16px; }
         input, select { width: 100%; background-color: #020617; border: 1px solid #1e293b; border-radius: 12px; padding: 10px 16px; font-size: 0.875rem; color: #f8fafc; outline: none; box-sizing: border-box; }
@@ -24,9 +25,14 @@
         .btn { width: 100%; border-radius: 12px; font-weight: 600; padding: 12px 16px; font-size: 1rem; cursor: pointer; transition: all 0.2s; box-sizing: border-box; border: 1px solid transparent; }
         .btn-amber { background: linear-gradient(to right, #f59e0b, #ea580c); color: #ffffff; box-shadow: 0 10px 15px -3px rgba(234,88,12,0.15); }
         .btn-amber:hover { background: linear-gradient(to right, #d97706, #ca8a04); }
+        .btn-amber:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; box-shadow: none; }
+        .btn-wallet { background-color: #1e293b; color: #cbd5e1; border: 1px solid #334155; margin-bottom: 12px; }
+        .btn-wallet.connected { background: linear-gradient(to right, #10b981, #059669); color: #fff; }
         .dropzone { border: 2px dashed #334155; border-radius: 12px; padding: 24px; text-align: center; cursor: pointer; position: relative; background-color: rgba(2,6,23,0.5); }
         .dropzone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
-        .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 0.875rem; font-weight: 550; display: none; }
+        .dropzone.disabled { opacity: 0.4; cursor: not-allowed; }
+        .dropzone input[type="file"]:disabled { cursor: not-allowed; }
+        .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 0.875rem; font-weight: 550; display: none; word-break: break-all; }
         .msg-blue { background-color: #071437; border: 1px solid #002b66; color: #70a1ff; }
         .msg-green { background-color: #061c11; border: 1px solid #053b1b; color: #4ade80; }
         .msg-red { background-color: #1c0d0d; border: 1px solid #3b0505; color: #f87171; }
@@ -46,26 +52,26 @@
     <div class="container">
         <header>
             <h1>Arweave Permaweb Box</h1>
-            <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Almacenamiento permanente directo en la Blockchain al costo real de red</p>
+            <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Almacenamiento permanente firmado con Wander Wallet</p>
         </header>
-        <!-- Bloque Principal de Operaciones -->
+
         <div class="grid">
-            
-            <!-- Panel Izquierdo: Saldo y Calculadora Directa (Arweave Fees Engine) -->
+            <!-- Panel Izquierdo: Wallet Conexión, Saldo y Calculadora -->
             <div class="card">
                 <div>
-                    <h2>💰 Tu Saldo On-Chain</h2>
-                    <p class="subtitle">Fondos reales disponibles en tu billetera de Arweave</p>
+                    <h2>Identidad Web3</h2>
+                    <button id="btnWalletConnect" class="btn btn-wallet">Conectar Wander Wallet</button>
+                    
+                    <h2>Tu Saldo On-Chain</h2>
+                    <p class="subtitle">Fondos reales de la billetera activa</p>
                     <div class="balance-box">
-                        <div id="txtBalance" class="balance-amount">5.240438</div>
+                        <div id="txtBalance" class="balance-amount">0.000000</div>
                         <span class="balance-label">AR TOKENS</span>
                     </div>
                 </div>
-
                 <div style="border-top: 1px dashed #334155; padding-top: 16px; margin-top: 16px;">
-                    <h2>🧮 Calculadora de Costos</h2>
+                    <h2>Calculadora de Costos</h2>
                     <p class="subtitle">Estima la tarifa oficial de almacenamiento de la red en tiempo real</p>
-                    
                     <div class="input-group">
                         <input type="number" id="calcSize" placeholder="Tamaño detectado" readonly style="background-color: #0b0f19; color: #94a3b8; cursor: not-allowed;">
                         <select id="calcUnit" disabled style="background-color: #0b0f19; color: #94a3b8; cursor: not-allowed;">
@@ -74,43 +80,37 @@
                             <option value="MB">Megabytes (MB)</option>
                         </select>
                     </div>
-
                     <div class="balance-box" style="margin-top: 16px; background-color: #090d16; border-color: #1e293b;">
-                        <!-- Inyectamos los identificadores exactos del motor oficial para ver los datos -->
                         <div id="calcRes" class="balance-amount" style="color: #38bdf8; font-size: 1.5rem;">0.000000</div>
                         <span class="balance-label" style="color: #94a3b8;">AR ESTIMADOS</span>
                     </div>
                 </div>
             </div>
 
-            <!-- Panel Derecho: Formulario de Subida Directa -->
+            <!-- Panel Derecho: Formulario de Subida Integrado con Wander -->
             <div class="card">
-                <h2>⚡ Sube un nuevo archivo</h2>
-                <p class="subtitle">Los archivos medianos o grandes pagan la tarifa exacta de almacenamiento lineal</p>
+                <h2>Sube un nuevo archivo</h2>
+                <p class="subtitle">Los archivos se firman de forma segura desde tu extensión sin exponer llaves privadas</p>
                 
                 <form id="uploadForm" style="display: flex; flex-direction: column; gap: 16px; margin-top: 8px;">
-                    <div class="dropzone">
-                        <input type="file" id="fileInput" required>
-                        <div style="font-size: 1.875rem; margin-bottom: 8px;">📁</div>
-                        <p id="fileLabel" style="color: #94a3b8; font-size: 0.875rem; margin: 0;">Arrastra tu archivo aquí o haz clic para buscar</p>
+                    <div id="dropzoneContainer" class="dropzone disabled">
+                        <input type="file" id="fileInput" required disabled>
+                        <p id="fileLabel" style="color: #64748b; font-size: 0.875rem; margin: 0;">Conecta Wander para habilitar la carga</p>
                     </div>
-                    
-                    <button type="submit" id="btnSubmit" class="btn btn-amber">Subir a la Red Principal</button>
+                    <button type="submit" id="btnSubmit" class="btn btn-amber" disabled>Subir a la Red Principal</button>
                 </form>
                 
                 <div id="statusMessage" class="msg"></div>
             </div>
         </div>
 
-        <!-- Sección de Listado de Archivos -->
+        <!-- Sección de Listado de Archivos (GraphQL Dinámico) -->
         <section class="table-section">
             <div class="table-header">
-                <h2>📁 Tus Archivos Guardados</h2>
-                <button id="btnRefresh" class="btn-refresh">🔄 Actualizar todo</button>
+                <h2>Tus Archivos Guardados</h2>
+                <button id="btnRefresh" class="btn-refresh" disabled>Actualizar todo</button>
             </div>
-
             <div id="loadingList" class="loader">Buscando transacciones en Arweave GraphQL...</div>
-
             <div class="table-wrapper">
                 <table>
                     <thead>
@@ -121,7 +121,7 @@
                         </tr>
                     </thead>
                     <tbody id="filesTableBody">
-                        <!-- Los datos se inyectan dinámicamente -->
+                        <tr><td colspan="3" style="text-align: center; color:#64748b; padding: 24px;">Conecta tu wallet para listar tus archivos.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -129,23 +129,75 @@
     </div>
     <!-- Lógica de Frontend -->
     <script>
+        // Inicializamos el objeto Arweave del lado del cliente apuntando al gateway global
+        const arweave = window.Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
+        let userAddress = "";
+
+        const btnWalletConnect = document.getElementById('btnWalletConnect');
         const fileInput = document.getElementById('fileInput');
         const fileLabel = document.getElementById('fileLabel');
+        const dropzoneContainer = document.getElementById('dropzoneContainer');
         const uploadForm = document.getElementById('uploadForm');
         const statusMessage = document.getElementById('statusMessage');
         const btnSubmit = document.getElementById('btnSubmit');
         const btnRefresh = document.getElementById('btnRefresh');
         const filesTableBody = document.getElementById('filesTableBody');
         const loadingList = document.getElementById('loadingList');
-
         const txtBalance = document.getElementById('txtBalance');
         const calcSize = document.getElementById('calcSize');
         const calcUnit = document.getElementById('calcUnit');
         const calcRes = document.getElementById('calcRes');
 
-        async function checkArweaveBalance() {
+        // --- CONEXIÓN A WANDER WALLET ---
+        btnWalletConnect.addEventListener('click', async () => {
+            if (!window.arweaveWallet) return alert("Por favor, instala la extensión Wander Wallet.");
+            
             try {
-                const response = await fetch('/api/balance');
+                if (userAddress) {
+                    // Flujo de desconexión simple
+                    userAddress = "";
+                    btnWalletConnect.innerText = "Conectar Wander Wallet";
+                    btnWalletConnect.classList.remove('connected');
+                    txtBalance.innerText = "0.000000";
+                    fileInput.disabled = true;
+                    btnSubmit.disabled = true;
+                    btnRefresh.disabled = true;
+                    dropzoneContainer.classList.add('disabled');
+                    fileLabel.innerText = "Conecta Wander para habilitar la carga";
+                    filesTableBody.innerHTML = '<tr><td colspan="3" style="text-align: center; color:#64748b; padding: 24px;">Conecta tu wallet para listar tus archivos.</td></tr>';
+                    return;
+                }
+
+                btnWalletConnect.innerText = "Conectando...";
+                await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
+                userAddress = await window.arweaveWallet.getActiveAddress();
+                
+                btnWalletConnect.innerText = `Conectado: ${userAddress.substring(0,6)}...${userAddress.slice(-4)}`;
+                btnWalletConnect.classList.add('connected');
+                
+                // Desbloquear controles del UI
+                fileInput.disabled = false;
+                btnRefresh.disabled = false;
+                dropzoneContainer.classList.remove('disabled');
+                fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
+                fileLabel.style.color = '#94a3b8';
+
+                // Disparar lecturas iniciales dinámicas
+                checkArweaveBalance();
+                loadFiles();
+
+            } catch (err) {
+                console.error("Error al conectar wallet:", err);
+                btnWalletConnect.innerText = "Error de Conexión";
+                alert("No se pudo conectar a Wander Wallet: " + err.message);
+            }
+        });
+
+        // --- OBTENER BALANCE ---
+        async function checkArweaveBalance() {
+            if (!userAddress) return;
+            try {
+                const response = await fetch(`/api/balance/${userAddress}`);
                 const data = await response.json();
                 if (data.success) {
                     txtBalance.innerText = parseFloat(data.balance).toFixed(6);
@@ -155,6 +207,7 @@
             }
         }
 
+        // --- CALCULAR TARIFAS DE LA RED ---
         async function calculateCost(totalBytes) {
             if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
@@ -171,14 +224,14 @@
                 calcRes.innerText = "Error";
             }
         }
-
+        // --- CAPTURA DE ARCHIVO ---
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
                 const file = e.target.files[0];
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
-
+                
                 const sizeInBytes = file.size; 
                 if (sizeInBytes < 1024) {
                     calcSize.value = sizeInBytes;
@@ -190,52 +243,102 @@
                     calcSize.value = (sizeInBytes / (1024 * 1024)).toFixed(2);
                     calcUnit.value = "MB";
                 }
-
                 calculateCost(sizeInBytes);
+                btnSubmit.disabled = false;
             }
         });
 
+        // --- PROCESO DE FIRMA Y SUBIDA UNIFICADA ---
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            if (!userAddress) return alert("Conecta tu billetera primero.");
+            if (!fileInput.files.length) return alert("Selecciona un archivo.");
 
+            const file = fileInput.files[0];
             btnSubmit.disabled = true;
-            btnSubmit.innerText = "Firmando y enviando transacción AR...";
-            showMessage('Procesando archivo en el servidor y transmitiendo a la blockchain...', 'msg-blue');
-            
+            btnSubmit.innerText = "Esperando firma en Wander...";
+            showMessage('Leyendo binario y solicitando aprobación de firma en tu extensión...', 'msg-blue');
+
             try {
-                const response = await fetch('/api/upload', { method: 'POST', body: formData });
-                const data = await response.json();
-                
-                if (data.success) {
-                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}.`, 'msg-green');
-                    uploadForm.reset();
-                    fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
-                    fileLabel.style.color = '#94a3b8';
-                    fileLabel.style.fontWeight = '400';
-                    calcSize.value = '';
-                    calcRes.innerText = "0.000000";
-                    
-                    setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
-                } else {
-                    showMessage(`❌ Error: ${data.error}`, 'msg-red');
-                }
+                const reader = new FileReader();
+                reader.readAsArrayBuffer(file);
+                reader.onload = async (event) => {
+                    try {
+                        const arrayBuffer = event.target.result;
+
+                        // 1. Crear transacción cruda en el frontend
+                        const transaction = await arweave.createTransaction({ data: arrayBuffer });
+                        
+                        // 2. Inyectar tags para indexación GraphQL del proyecto direct
+                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+                        transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
+                        transaction.addTag('File-Name', file.name);
+
+                        // 3. Solicitar firma a Wander Wallet
+                        await arweave.transactions.sign(transaction, "use_wallet");
+
+                        showMessage('Transmisión de datos firmados en progreso hacia el nodo...', 'msg-blue');
+                        btnSubmit.innerText = "Transmitiendo datos...";
+
+                        // 4. Convertir buffer a Base64 para enviarlo de forma segura mediante JSON a Render
+                        const uint8Array = new Uint8Array(arrayBuffer);
+                        let binaryString = "";
+                        for (let i = 0; i < uint8Array.length; i++) {
+                            binaryString += String.fromCharCode(uint8Array[i]);
+                        }
+                        const fileBufferBase64 = btoa(binaryString);
+
+                        // 5. Enviar estructura de la TX y datos al servidor unificado
+                        const payload = {
+                            transactionData: transaction,
+                            fileBufferBase64: fileBufferBase64
+                        };
+
+                        const response = await fetch('/api/upload', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(payload)
+                        });
+                        
+                        const data = await response.json();
+
+                        if (data.success) {
+                            showMessage(`¡Enviado con éxito! ID de Transacción: ${data.txId}.`, 'msg-green');
+                            uploadForm.reset();
+                            fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
+                            fileLabel.style.color = '#94a3b8';
+                            fileLabel.style.fontWeight = '400';
+                            calcSize.value = '';
+                            calcRes.innerText = "0.000000";
+                            
+                            // Actualización diferida para dar tiempo de propagación en la red
+                            setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
+                        } else {
+                            showMessage(`Error del servidor: ${data.error}`, 'msg-red');
+                            btnSubmit.disabled = false;
+                        }
+
+                    } catch (innerErr) {
+                        console.error(innerErr);
+                        showMessage(`Error en firma / preparación: ${innerErr.message}`, 'msg-red');
+                        btnSubmit.disabled = false;
+                    }
+                };
             } catch (err) {
-                showMessage(`❌ Error de conexión al servidor`, 'msg-red');
-            } finally {
+                console.error(err);
+                showMessage(`Error al leer archivo físico: ${err.message}`, 'msg-red');
                 btnSubmit.disabled = false;
-                btnSubmit.innerText = "Subir a la Red Principal";
             }
         });
 
-        // SOLUCIÓN DEFINITIVA: Inyección de variables usando comillas invertidas literales (backticks)
+        // --- CARGAR HISTORIAL CON GRAPHQL DINÁMICO ---
         async function loadFiles() {
+            if (!userAddress) return;
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
             
             try {
-                const response = await fetch('/api/files');
+                const response = await fetch(`/api/files/${userAddress}`);
                 const data = await response.json();
                 
                 if (data.success && data.files.length > 0) {
@@ -243,19 +346,16 @@
                         const tr = document.createElement('tr');
                         tr.className = "data-row";
                         
-                        // CORRECCIÓN CLAVE: Usamos comillas invertidas ` para que JavaScript reemplace las variables en vivo
                         tr.innerHTML = `
-                            <td style="padding: 16px; font-weight: 500; max-wxl: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">` + file.name + `</td>
-                            <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">` + file.type + `</td>
+                            <td style="padding: 16px; font-weight: 500; max-width: 200px; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${file.name}</td>
+                            <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">${file.type}</td>
                             <td style="padding: 16px; text-align: right;">
                                 <div style="display: flex; justify-content: flex-end; gap: 8px;">
-                                    <!-- Botón de Auditoría de Transacción en ViewBlock -->
-                                    <a href="` + file.txUrl + `" target="_blank" class="btn-download" style="color: #60a5fa; border-color: rgba(51,65,85,0.8);">
-                                        🔍 Ver TX
+                                    <a href="${file.txUrl}" target="_blank" class="btn-download" style="color: #60a5fa; border-color: rgba(51,65,85,0.8);">
+                                         Ver TX
                                     </a>
-                                    <!-- Botón de Descarga Directa del archivo con la diagonal corregida -->
-                                    <a href="` + file.url + `" target="_blank" class="btn-download">
-                                        ⬇️ Ver Archivo
+                                    <a href="${file.url}" target="_blank" class="btn-download">
+                                         Ver Archivo
                                     </a>
                                 </div>
                             </td>
@@ -263,10 +363,11 @@
                         filesTableBody.appendChild(tr);
                     });
                 } else {
-                    filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-slate-500 py-8">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
+                    filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 32px;">No se encontraron archivos subidos por esta dirección todavía.</td></tr>`;
                 }
             } catch (err) {
-                filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-rose-400 py-8">Error al cargar la lista.</td></tr>`;
+                console.error(err);
+                filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #f87171; padding: 32px;">Error al cargar la lista desde GraphQL.</td></tr>`;
             } finally {
                 loadingList.style.display = 'none';
             }
@@ -279,9 +380,6 @@
         }
 
         btnRefresh.addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
-        window.addEventListener('DOMContentLoaded', () => { checkArweaveBalance(); loadFiles(); });
     </script>
 </body>
 </html>
-
-
