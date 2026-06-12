@@ -181,7 +181,12 @@
             walletLabel.innerText = "Conectando...";
             try {
                 // Inyectamos "SIGN_DATA" de forma explícita en la solicitud inicial de permisos
-                await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION", "SIGN_DATA"]);
+                await window.arweaveWallet.connect([
+                    "ACCESS_ADDRESS", 
+                    "SIGN_TRANSACTION", 
+                    "ACCESS_BALANCE"
+                ]);
+
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 walletLabel.innerText = "Wander Conectado";
