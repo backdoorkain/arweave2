@@ -23,22 +23,31 @@ try {
         wallet = JSON.parse(process.env.ARWEAVE_WALLET);
         arweave.wallets.jwkToAddress(wallet).then(address => {
             walletAddress = address;
-            console.log(`>>> Conectado a Arweave Raw. Dirección: ${address}`);
+            console.log(`>>> Conconnected to Arweave Raw. Dirección: ${address}`);
         });
     } else {
         console.error(">>> ERROR: Configura la variable ARWEAVE_WALLET en Render.");
     }
 } catch (error) {
-    console.error(">>> ERROR: Formato de billetera inválido.");
+    console.error(">>> ERROR: Billetera inválida.");
 }
 
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(express.static(path.join(__dirname, 'public')));
 
+// --- SOLUCIÓN ANTICACHÉ CRÍTICA ---
+// Deshabilitamos por completo las cabeceras de caché del lado del servidor Express
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    next();
+});
+
+// Forzamos el envío del archivo index.html limpio eliminando express.static en la raíz
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
+
+app.use(express.static(path.join(__dirname, 'public')));
 
 // --- RUTA 1: SUBIR ARCHIVO RAW ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
@@ -48,8 +57,8 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
 
         const fileData = fs.readFileSync(path.resolve(req.file.path));
         const dataBuffer = Buffer.from(fileData);
-        
         const byteSize = dataBuffer.length;
+        
         const basePriceInWinston = await arweave.transactions.getPrice(byteSize);
         const boostedReward = (BigInt(basePriceInWinston) * 14n / 10n).toString();
 
@@ -78,7 +87,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// --- RUTA 2 REPARADA: LISTAR ARCHIVOS CON LOS DOS LINKS CORREGIDOS ---
+// --- RUTA 2: LISTAR ARCHIVOS ---
 app.get('/api/files', async (req, res) => {
     try {
         if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
@@ -89,9 +98,7 @@ app.get('/api/files', async (req, res) => {
                 owners: ["${walletAddress}"]
                 tags: { name: "App-Name", values: ["MiArweaveUploaderBasico"] }
                 first: 50
-              ) {
-                edges { node { id tags { name value } } }
-              }
+              ) { edges { node { id tags { name value } } } }
             }`
         };
 
@@ -102,25 +109,19 @@ app.get('/api/files', async (req, res) => {
             const tags = edge.node.tags;
             const nameTag = tags.find(t => t.name === 'File-Name');
             const typeTag = tags.find(t => t.name === 'Content-Type');
-            
-            // CORRECCIÓN TÉCNICA: Usamos comillas invertidas e inyectamos el ID de forma limpia
             const txId = edge.node.id;
             
             return {
                 id: txId,
                 name: nameTag ? nameTag.value : 'Archivo sin nombre',
                 type: typeTag ? typeTag.value : 'Desconocido',
-                
-                // Mapeamos los dos enlaces independientes de forma nativa
-                url: `https://arweave.net{txId}`,               // Enlace directo al archivo binario
-                txUrl: `https://viewblock.io{txId}`   // Enlace de auditoría en ViewBlock
+                url: "https://arweave.net" + txId,
+                txUrl: "https://viewblock.io" + txId
             };
         });
 
         res.json({ success: true, files });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 // --- RUTA 3: CONSULTAR BALANCE ---
@@ -130,21 +131,17 @@ app.get('/api/balance', async (req, res) => {
         const winstonBalance = await arweave.wallets.getBalance(walletAddress);
         const arBalance = arweave.ar.winstonToAr(winstonBalance);
         res.json({ success: true, balance: arBalance });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// --- RUTA 4: CONSULTAR PRECIO DE RED NATIVO ---
+// --- RUTA 4: CONSULTAR PRECIO ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = parseInt(req.params.bytes);
         const winstonPrice = await arweave.transactions.getPrice(bytes);
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
         res.json({ success: true, ar: arPrice });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.listen(PORT, () => {
