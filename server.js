@@ -38,41 +38,53 @@ try {
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// --- RUTA 1: SUBIR ARCHIVO ---
+// --- NUEVA RUTA 1 CORREGIDA: SUBIR ARCHIVO ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
         if (!wallet) return res.status(500).json({ error: 'Billetera no configurada.' });
 
-        // Leer los datos binarios del archivo temporal
-        const fileData = fs.readFileSync(req.file.path);
+        // Forzar la lectura explícita como un Buffer de Node.js
+        const fileData = fs.readFileSync(path.resolve(req.file.path));
+        const dataBuffer = Buffer.from(fileData);
         
-        // Crear la transacción de datos en Arweave
-        const transaction = await arweave.createTransaction({ data: fileData }, wallet);
+        // Crear la transacción envolviendo el buffer explícitamente
+        const transaction = await arweave.createTransaction({ 
+            data: dataBuffer 
+        }, wallet);
         
-        // Agregar etiquetas (Tags) para identificar el tipo de archivo y poder listarlo después
+        // Etiquetas optimizadas para compatibilidad nativa en Mainnet
         transaction.addTag('Content-Type', req.file.mimetype);
         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
         transaction.addTag('File-Name', req.file.originalname);
+        transaction.addTag('Data-Protocol', 'Binary');
 
-        // Firmar y enviar la transacción
+        // Firmar la transacción con tu JWK segura
         await arweave.transactions.sign(transaction, wallet);
+        
+        // Enviar al nodo de producción
         const response = await arweave.transactions.post(transaction);
 
-        // Borrar el archivo temporal del servidor Express inmediatamente
-        fs.unlinkSync(req.file.path);
+        // Limpieza obligatoria del almacenamiento temporal en Render
+        if (fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
 
         if (response.status === 200 || response.status === 202) {
             return res.json({ 
                 success: true, 
                 txId: transaction.id,
-                message: "Archivo enviado a Mainnet. Puede tardar unos minutos en confirmarse."
+                message: "Archivo enviado a Mainnet con éxito."
             });
         } else {
             return res.status(500).json({ error: `Error en red Arweave: Código ${response.status}` });
         }
     } catch (error) {
-        console.error(error);
+        console.error("Detalle del error en consola:", error);
+        // Asegurar limpieza incluso si el proceso falla a mitad
+        if (req.file && fs.existsSync(req.file.path)) {
+            fs.unlinkSync(req.file.path);
+        }
         return res.status(500).json({ error: error.message });
     }
 });
