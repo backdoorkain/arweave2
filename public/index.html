@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arweave Explorer & Uploader (Raw Edition)</title>
+    <!-- Estilos Web3 integrados directamente para evitar bloqueos del navegador -->
     <style>
         body { background-color: #020617; color: #f8fafc; font-family: system-ui, sans-serif; margin: 0; padding: 0; min-height: 100vh; }
         .container { max-width: 1024px; margin: 0 auto; padding: 24px; }
@@ -47,16 +48,16 @@
             <h1>Arweave Permaweb Box</h1>
             <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Almacenamiento permanente directo en la Blockchain al costo real de red</p>
         </header>
-                <!-- Bloque Principal de Operaciones -->
+        <!-- Bloque Principal de Operaciones -->
         <div class="grid">
             
-            <!-- Panel Izquierdo: Saldo y Calculadora (Inspirado en ar-fees) -->
+            <!-- Panel Izquierdo: Saldo y Calculadora Automática -->
             <div class="card">
                 <div>
                     <h2>💰 Tu Saldo On-Chain</h2>
                     <p class="subtitle">Fondos reales disponibles en tu billetera de Arweave</p>
                     <div class="balance-box">
-                        <div id="txtBalance" class="balance-amount">0.000000</div>
+                        <div id="txtBalance" class="balance-amount">5.240438</div>
                         <span class="balance-label">AR TOKENS</span>
                     </div>
                 </div>
@@ -66,10 +67,10 @@
                     <p class="subtitle">Estima la tarifa oficial de almacenamiento de la red en tiempo real</p>
                     
                     <div class="input-group">
-                        <input type="number" id="calcSize" placeholder="Introduce el tamaño" min="1" value="1">
-                        <select id="calcUnit">
+                        <input type="number" id="calcSize" placeholder="Tamaño detectado" readonly style="background-color: #0b0f19; color: #94a3b8; cursor: not-allowed;">
+                        <select id="calcUnit" disabled style="background-color: #0b0f19; color: #94a3b8; cursor: not-allowed;">
                             <option value="B">Bytes (B)</option>
-                            <option value="KB" selected>Kilobytes (KB)</option>
+                            <option value="KB">Kilobytes (KB)</option>
                             <option value="MB">Megabytes (MB)</option>
                         </select>
                     </div>
@@ -81,7 +82,7 @@
                 </div>
             </div>
 
-            <!-- Panel Derecho: Formulario de Subida -->
+            <!-- Panel Derecho: Formulario de Subida Directa -->
             <div class="card">
                 <h2>⚡ Sube un nuevo archivo</h2>
                 <p class="subtitle">Los archivos medianos o grandes pagan la tarifa exacta de almacenamiento lineal</p>
@@ -125,7 +126,7 @@
             </div>
         </section>
     </div>
-        <!-- Lógica de Frontend -->
+    <!-- Lógica de Frontend -->
     <script>
         const fileInput = document.getElementById('fileInput');
         const fileLabel = document.getElementById('fileLabel');
@@ -136,7 +137,6 @@
         const filesTableBody = document.getElementById('filesTableBody');
         const loadingList = document.getElementById('loadingList');
 
-        // Nuevos elementos: Balance y Calculadora
         const txtBalance = document.getElementById('txtBalance');
         const calcSize = document.getElementById('calcSize');
         const calcUnit = document.getElementById('calcUnit');
@@ -155,24 +155,14 @@
             }
         }
 
-        // 2. Lógica de la calculadora (Inspirada en ar-fees.arweave.net)
-        async function calculateCost() {
-            const size = parseFloat(calcSize.value);
-            const unit = calcUnit.value;
-            
-            if (!size || size <= 0 || isNaN(size)) {
+        // 2. Lógica de la calculadora automática por Bytes puros
+        async function calculateCost(totalBytes) {
+            if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
                 return;
             }
-
-            // Convertir la unidad seleccionada a Bytes puros
-            let bytes = size;
-            if (unit === "KB") bytes = Math.floor(size * 1024);
-            if (unit === "MB") bytes = Math.floor(size * 1024 * 1024);
-
             try {
-                // Hacer la petición al endpoint de estimación del servidor
-                const response = await fetch(`/api/price/${bytes}`);
+                const response = await fetch(`/api/price/${totalBytes}`);
                 const data = await response.json();
                 if (data.success) {
                     calcRes.innerText = parseFloat(data.ar).toFixed(6);
@@ -183,23 +173,35 @@
             }
         }
 
-        // Escuchar cambios en los controles de la calculadora para cotizar en vivo
-        calcSize.addEventListener('input', calculateCost);
-        calcUnit.addEventListener('change', calculateCost);
-
-        // Cambiar el label visual al seleccionar un archivo
+        // Detectar el peso exacto del archivo al seleccionarlo e inyectarlo en la calculadora
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
-                fileLabel.innerText = `Seleccionado: ${e.target.files[0].name}`;
+                const file = e.target.files[0];
+                fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
+
+                // Formatear automáticamente el tamaño visual en la calculadora
+                const sizeInBytes = file.size;
+                if (sizeInBytes < 1024) {
+                    calcSize.value = sizeInBytes;
+                    calcUnit.value = "B";
+                } else if (sizeInBytes < 1024 * 1024) {
+                    calcSize.value = (sizeInBytes / 1024).toFixed(2);
+                    calcUnit.value = "KB";
+                } else {
+                    calcSize.value = (sizeInBytes / (1024 * 1024)).toFixed(2);
+                    calcUnit.value = "MB";
+                }
+
+                // Ejecutar la cotización automática directa contra la blockchain
+                calculateCost(sizeInBytes);
             }
         });
 
         // Enviar formulario de subida a Arweave Raw
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
-            
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
@@ -212,17 +214,18 @@
                 const data = await response.json();
                 
                 if (data.success) {
-                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}. Aparecerá en la lista en unos minutos.`, 'msg-green');
+                    showMessage(`🎉 ¡Enviado con éxito! ID: ${data.txId}. Aparecerá en la lista tras confirmarse el bloque.`, 'msg-green');
                     uploadForm.reset();
                     fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
                     fileLabel.style.color = '#94a3b8';
                     fileLabel.style.fontWeight = '400';
+                    calcSize.value = '';
+                    calcRes.innerText = "0.000000";
                     
-                    // Actualizar el saldo e historial unos segundos después
                     setTimeout(() => {
                         loadFiles();
                         checkArweaveBalance();
-                    }, 3000);
+                    }, 4000);
                 } else {
                     showMessage(`❌ Error: ${data.error}`, 'msg-red');
                 }
@@ -234,7 +237,7 @@
             }
         });
 
-        // Cargar lista de archivos mediante GraphQL nativo
+        // Cargar lista de archivos unificada mediante GraphQL
         async function loadFiles() {
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
@@ -277,14 +280,11 @@
         btnRefresh.addEventListener('click', () => {
             loadFiles();
             checkArweaveBalance();
-            calculateCost();
         });
         
-        // Inicialización automatizada al encender la página en Render
         window.addEventListener('DOMContentLoaded', () => {
             checkArweaveBalance();
             loadFiles();
-            calculateCost();
         });
     </script>
 </body>
