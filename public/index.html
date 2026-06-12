@@ -236,7 +236,7 @@
         // 4. DETECTAR TAMAÑO Y CONFIGURAR CALCULADORA AUTOMÁTICA
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0]; // Extraemos el primer archivo real indexado
+                const file = e.target.files[0]; // <-- CORRECCIÓN CRÍTICA: Accedemos al archivo crudo [0]
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -257,7 +257,7 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA CORREGIDA MANDANDO LA INSTRUCCIÓN DE USO DE WALLET
+        // 5. SUBIDA ASÍNCRONA CORREGIDA PASANDO EL BINARIO CERO [0]
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!userAddress) {
@@ -266,7 +266,7 @@
             }
 
             if (fileInput.files.length === 0) return;
-            const file = fileInput.files[0]; // Archivo individual crudo indexado
+            const fileReal = fileInput.files[0]; // <-- CORRECCIÓN CRÍTICA: Obtenemos el archivo [0] para el lector
             
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Abriendo Wander para firmar...";
@@ -287,23 +287,24 @@
                         const baseWinston = arweave.ar.arToWinston(priceData.ar);
                         const boostedReward = (BigInt(baseWinston) * 14n / 10n).toString();
 
-                        // Crear objeto de transacción básico
+                        // Crear objeto de transacción básico con los bytes de la imagen
                         const transaction = await arweave.createTransaction({
                             data: dataBuffer,
                             reward: boostedReward
                         });
 
-                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+                        // Inyectar etiquetas usando las propiedades del archivo real [0]
+                        transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
                         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
-                        transaction.addTag('File-Name', file.name);
+                        transaction.addTag('File-Name', fileReal.name);
 
-                        // SINTAXIS MODERNA REPARADA: Le dice al SDK de Arweave que use la extensión Wander de forma nativa
+                        // Disparar la firma a través del objeto global con permisos de Wander
                         await arweave.transactions.sign(transaction, "use_wallet");
 
                         showMessage('Transacción firmada con Wander. Transmitiendo bytes seguros...', 'msg-blue');
                         btnSubmit.innerText = "Transmitiendo a Render...";
 
-                        // Transmitir la estructura firmada al backend puente
+                        // Transmitir la estructura firmada al backend puente [1.1]
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -332,7 +333,10 @@
                         btnSubmit.innerText = "Subir a la Red Principal";
                     }
                 };
-                fileReader.readAsArrayBuffer(file);
+                
+                // CORRECCIÓN DEFINITIVA: Le pasamos el archivo físico indexado [0] al lector de buffers
+                fileReader.readAsArrayBuffer(fileReal);
+                
             } catch (err) {
                 showMessage(`❌ Fallo al procesar archivo temporal`, 'msg-red');
                 btnSubmit.disabled = false;
