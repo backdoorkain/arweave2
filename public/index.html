@@ -144,14 +144,12 @@
     </div>
     <!-- Lógica de Frontend - Bloque A -->
     <script>
-        // Inicializar Arweave local usando el SDK inyectado por CDN
         const arweave = Arweave.init({
             host: 'arweave.net',
             port: 443,
             protocol: 'https'
         });
 
-        // Elementos de la interfaz
         const walletInput = document.getElementById('walletInput');
         const walletLabel = document.getElementById('walletLabel');
         const walletIcon = document.getElementById('walletIcon');
@@ -172,7 +170,6 @@
         const calcUnit = document.getElementById('calcUnit');
         const calcRes = document.getElementById('calcRes');
 
-        // Variables de estado local (RAM del Navegador)
         let jwkWallet = null;
         let userAddress = "";
 
@@ -243,7 +240,7 @@
         // Detectar tamaño del archivo al seleccionarlo automáticamente
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0];
+                const file = e.target.files[0]; // <-- CORRECCIÓN: Acceso indexado
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -272,7 +269,9 @@
                 return;
             }
 
-            const file = fileInput.files[0];
+            if (fileInput.files.length === 0) return;
+            const file = fileInput.files[0]; // <-- CORRECCIÓN: Acceso indexado al archivo crudo
+            
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando localmente en RAM...";
             showMessage('Leyendo archivo y calculando firmas criptográficas en tu navegador...', 'msg-blue');
@@ -298,6 +297,7 @@
                             reward: boostedReward
                         }, jwkWallet);
 
+                        // Inyectar metadatos usando las propiedades nativas del objeto File
                         transaction.addTag('Content-Type', file.type || 'application/octet-stream');
                         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                         transaction.addTag('File-Name', file.name);
@@ -337,7 +337,7 @@
                         btnSubmit.innerText = "Subir a la Red Principal";
                     }
                 };
-                fileReader.readAsArrayBuffer(file);
+                fileReader.readAsArrayBuffer(file); // <-- Carga el binario crudo correcto
             } catch (err) {
                 showMessage(`❌ Fallo al procesar archivo temporal`, 'msg-red');
                 btnSubmit.disabled = false;
@@ -385,3 +385,4 @@
     </script>
 </body>
 </html>
+
