@@ -3,36 +3,78 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Subidor Arweave Minimalista</title>
-    <!-- CORRECCIÓN 1: Enlace oficial y funcional al bundle de Arweave -->
+    <title>Arweave Permaweb Uploader</title>
+    <!-- Tailwind CSS para diseño moderno -->
+    <script src="https://jsdelivr.net"></script>
+    <!-- SDK oficial de Arweave para navegadores -->
     <script src="https://unpkg.com"></script>
-    <style>
-        body { font-family: sans-serif; max-width: 500px; margin: 50px auto; padding: 20px; line-height: 1.6; }
-        .box { border: 1px solid #ccc; padding: 15px; margin-bottom: 15px; border-radius: 5px; }
-        button { padding: 10px 15px; cursor: pointer; margin-right: 10px; }
-        #status { font-weight: bold; color: blue; }
-    </style>
 </head>
-<body>
+<body class="bg-[#0b0f19] text-gray-200 min-h-screen flex flex-col items-center py-10 px-4 antialiased selection:bg-teal-500 selection:text-slate-900">
 
-    <h2>Subidor Arweave Minimalista</h2>
-    <p>Estado actual: <span id="status">Desconectado</span></p>
+    <div class="w-full max-w-2xl bg-[#141b2d] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-8">
+        
+        <!-- Encabezado Principal -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-6">
+            <div>
+                <h1 class="text-2xl font-bold bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">Permaweb Uploader</h1>
+                <p class="text-sm text-gray-400 mt-1">Almacenamiento perpetuo y descentralizado</p>
+            </div>
+            <div class="flex items-center gap-2 self-start sm:self-center">
+                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" id="statusIndicator"></span>
+                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400" id="status">Desconectado</span>
+            </div>
+        </div>
 
-    <div class="box">
-        <h3>1. Billetera Wander</h3>
-        <button id="btnConnect">Conectar Wander</button>
-        <p>Dirección: <span id="txtAddress">Ninguna</span></p>
-    </div>
+        <!-- SECCIÓN 1: Control de Billetera -->
+        <div class="space-y-4">
+            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <h2 class="text-lg font-semibold text-slate-300">1. Identidad Web3</h2>
+                <button id="btnConnect" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/10 transition-all duration-200 cursor-pointer active:scale-[0.98]">
+                    Conectar Wander
+                </button>
+            </div>
+            <div id="addressBox" class="hidden p-4 bg-[#1f293d] border border-slate-700/50 rounded-xl space-y-1">
+                <span class="text-xs font-medium text-teal-400 block uppercase tracking-wider">Dirección de Billetera</span>
+                <span id="txtAddress" class="text-sm font-mono text-gray-300 break-all select-all">Ninguna</span>
+            </div>
+        </div>
+        <!-- SECCIÓN 2: Panel de Carga -->
+        <div class="space-y-4 pt-4 border-t border-slate-800/60">
+            <h2 class="text-lg font-semibold text-slate-300">2. Carga de Archivo</h2>
+            <div class="space-y-4">
+                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-[#0b0f19]/40 hover:bg-[#0b0f19]/80 hover:border-teal-500/50 transition-all group overflow-hidden">
+                    <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
+                        <svg class="w-8 h-8 mb-2 text-slate-500 group-hover:text-teal-400 transition-colors" aria-hidden="true" xmlns="http://w3.org" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
+                        <p class="text-sm text-gray-400"><span class="font-semibold text-teal-400">Haz clic aquí</span> o arrastra un archivo</p>
+                        <p id="fileNameDisplay" class="text-xs text-slate-500 mt-1 max-w-xs truncate font-mono">Ningún archivo seleccionado</p>
+                    </div>
+                    <input type="file" id="fileInput" class="hidden" disabled />
+                </label>
 
-    <div class="box">
-        <h3>2. Subir Archivo a la Permaweb</h3>
-        <input type="file" id="fileInput" disabled><br><br>
-        <button id="btnSubmit" disabled>Firmar y Subir Archivo</button>
-        <p id="uploadResult"></p>
+                <button id="btnSubmit" disabled class="w-full py-3.5 bg-slate-800 text-slate-500 font-bold rounded-xl transition-all duration-200 opacity-60 cursor-not-allowed">
+                    Firmar y Subir Archivo
+                </button>
+                <p id="uploadResult" class="text-sm font-medium text-center min-h-[20px]"></p>
+            </div>
+        </div>
+
+        <!-- SECCIÓN 3: Historial GraphQL -->
+        <div class="space-y-4 pt-6 border-t border-slate-800/60">
+            <div class="flex items-center justify-between">
+                <h2 class="text-lg font-semibold text-slate-300">3. Historial en la Permaweb (GraphQL)</h2>
+                <button id="btnRefresh" class="text-xs text-teal-400 hover:text-teal-300 font-medium cursor-pointer transition-colors hidden">Actualizar Lista</button>
+            </div>
+            <div id="historyPlaceholder" class="text-sm text-slate-500 italic text-center py-6 bg-[#0b0f19]/20 rounded-xl border border-slate-800/40">
+                Conecta tu billetera para consultar tus cargas previas desde la red descentralizada.
+            </div>
+            <div id="fileList" class="hidden space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
+                <!-- Se inyecta dinámicamente -->
+            </div>
+        </div>
+
     </div>
 
     <script>
-        // 1. Inicializar Arweave para navegadores mediante la ventana global
         const arweave = window.Arweave.init({
             host: 'arweave.net',
             port: 443,
@@ -41,14 +83,29 @@
 
         let userAddress = "";
 
-        // Captura e inyección segura de elementos del DOM
         const btnConnect = document.getElementById('btnConnect');
         const statusLabel = document.getElementById('status');
+        const statusIndicator = document.getElementById('statusIndicator');
         const txtAddress = document.getElementById('txtAddress');
+        const addressBox = document.getElementById('addressBox');
         const fileInput = document.getElementById('fileInput');
+        const fileNameDisplay = document.getElementById('fileNameDisplay');
         const btnSubmit = document.getElementById('btnSubmit');
         const uploadResult = document.getElementById('uploadResult');
+        const historyPlaceholder = document.getElementById('historyPlaceholder');
+        const fileList = document.getElementById('fileList');
+        const btnRefresh = document.getElementById('btnRefresh');
 
+        fileInput.addEventListener('change', (e) => {
+            const files = e.target.files;
+            if (files && files.length > 0) {
+                fileNameDisplay.innerText = files[0].name;
+                fileNameDisplay.classList.remove('text-slate-500');
+                fileNameDisplay.classList.add('text-teal-400', 'font-semibold');
+            } else {
+                fileNameDisplay.innerText = "Ningún archivo seleccionado";
+            }
+        });
         // --- EVENTO 1: CONECTAR BILLETERA WANDER ---
         btnConnect.addEventListener('click', async () => {
             if (!window.arweaveWallet) {
@@ -57,46 +114,45 @@
             }
             try {
                 statusLabel.innerText = "Conectando...";
-                
-                // Permisos oficiales en mayúsculas aprobados por Wander
                 await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
-                
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 txtAddress.innerText = userAddress;
+                addressBox.classList.remove('hidden');
                 statusLabel.innerText = "Conectado";
-                statusLabel.style.color = "green";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-400/50";
+                statusLabel.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
                 
-                // Desbloqueamos los controles físicos
                 fileInput.disabled = false;
                 btnSubmit.disabled = false;
-                uploadResult.innerText = "";
+                btnSubmit.className = "w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/10 transition-all duration-200 cursor-pointer active:scale-[0.99]";
+                
+                btnConnect.innerText = "Desconectar";
+                btnRefresh.classList.remove('hidden');
+
+                fetchArweaveHistory();
             } catch (err) {
                 console.error("Error al conectar:", err);
-                statusLabel.innerText = "Error al conectar";
-                statusLabel.style.color = "red";
+                statusLabel.innerText = "Error";
+                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-red-500";
+                statusLabel.className = "text-xs font-semibold uppercase tracking-wider text-red-400";
             }
         });
 
         // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO DIRECTO A ARWEAVE ---
         btnSubmit.addEventListener('click', async () => {
             const files = fileInput.files;
-            
-            // CORRECCIÓN CRÍTICA: Validación estricta del array de selección
             if (!files || files.length === 0) {
                 alert("Por favor, selecciona un archivo primero.");
                 return;
             }
             
-            // Extraer el archivo plano legítimo
             const file = files[0]; 
             uploadResult.innerText = "Leyendo archivo en memoria...";
-            uploadResult.style.color = "blue";
+            uploadResult.className = "text-sm font-medium text-center text-teal-400 animate-pulse";
             
             try {
                 const reader = new FileReader();
-                
-                // Leer el archivo como ArrayBuffer nativo
                 reader.readAsArrayBuffer(file);
                 
                 reader.onload = async (e) => {
@@ -104,46 +160,111 @@
                         const arrayBuffer = e.target.result;
                         uploadResult.innerText = "Creando transacción oficial...";
 
-                        // 1. Instanciamos la transacción inyectando los bytes reales para calcular costos exactos
-                        const transaction = await arweave.createTransaction({
-                            data: arrayBuffer 
-                        });
-
-                        // 2. Insertamos la etiqueta criptográfica del archivo
+                        const transaction = await arweave.createTransaction({ data: arrayBuffer });
                         transaction.addTag('Content-Type', file.type || 'application/octet-stream');
                         
-                        uploadResult.innerText = "Esperando aprobación en el pop-up de Wander...";
-
-                        // 3. Invocar la firma segura (Wander calcula AR en base a data de forma nativa)
+                        uploadResult.innerText = "Esperando aprobación en Wander...";
                         await arweave.transactions.sign(transaction, "use_wallet");
                         
-                        uploadResult.innerText = "Transmitiendo datos directo a la Permaweb...";
-
-                        // 4. Publicar la transacción firmada e íntegra directamente desde el cliente hacia los nodos
+                        uploadResult.innerText = "Transmitiendo datos a la Permaweb...";
                         const response = await arweave.transactions.post(transaction);
-                        console.log(">>> Estatus recibido de la red Arweave:", response.status);
 
-                        // 5. Los códigos 200 y 202 significan éxito en el protocolo descentralizado
                         if (response.status === 200 || response.status === 202) {
-                            uploadResult.innerHTML = `¡Éxito absoluto! Archivo subido.<br>ID: <a href="https://viewblock.io{transaction.id}" target="_blank" style="color: green; font-weight: bold;">${transaction.id}</a>`;
-                            uploadResult.style.color = "green";
+                            uploadResult.innerHTML = `¡Éxito absoluto! Archivo subido.<br><a href="https://viewblock.io{transaction.id}" target="_blank" class="text-emerald-400 underline font-bold mt-1 inline-block hover:text-emerald-300">${transaction.id}</a>`;
+                            uploadResult.className = "text-sm font-medium text-center text-emerald-400";
+                            
+                            setTimeout(fetchArweaveHistory, 3000);
                         } else {
                             uploadResult.innerText = `La red Arweave rechazó el paquete. Código: ${response.status}`;
-                            uploadResult.style.color = "red";
+                            uploadResult.className = "text-sm font-medium text-center text-red-400";
                         }
                     } catch (innerErr) {
-                        console.error("Error dentro del cargador del archivo:", innerErr);
-                        uploadResult.innerText = "Error en firma/envío: " + innerErr.message;
-                        uploadResult.style.color = "red";
+                        console.error(innerErr);
+                        uploadResult.innerText = "Error en firma: " + innerErr.message;
+                        uploadResult.className = "text-sm font-medium text-center text-red-400";
                     }
                 };
-                
             } catch (err) {
-                console.error("Error en el proceso de subida:", err);
-                uploadResult.innerText = "Error en el proceso: " + err.message;
-                uploadResult.style.color = "red";
+                console.error(err);
+                uploadResult.innerText = "Error: " + err.message;
+                uploadResult.className = "text-sm font-medium text-center text-red-400";
             }
         });
+
+        // --- SISTEMA INTERNO: CONSULTA GRAPHQL DE HISTORIAL ---
+        async function fetchArweaveHistory() {
+            if (!userAddress) return;
+            
+            historyPlaceholder.innerText = "Consultando índice GraphQL de Arweave...";
+            historyPlaceholder.classList.remove('hidden');
+            fileList.classList.add('hidden');
+
+            const queryGQL = {
+                query: `
+                query {
+                    transactions(owners: ["${userAddress}"], first: 10) {
+                        edges {
+                            node {
+                                id
+                                data { size }
+                                tags { name value }
+                            }
+                        }
+                    }
+                }`
+            };
+
+            try {
+                const response = await fetch("https://arweave.net", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify(queryGQL)
+                });
+                
+                const result = await response.json();
+                const edges = result?.data?.transactions?.edges || [];
+
+                if (edges.length === 0) {
+                    historyPlaceholder.innerText = "No se encontraron transacciones previas en la red.";
+                    return;
+                }
+
+                historyPlaceholder.classList.add('hidden');
+                fileList.innerHTML = ""; 
+                
+                edges.forEach(edge => {
+                    const node = edge.node;
+                    const contentTypeTag = node.tags.find(t => t.name.toLowerCase() === 'content-type');
+                    const mimeType = contentTypeTag ? contentTypeTag.value : 'unknown';
+                    const sizeKB = (node.data.size / 1024).toFixed(2);
+
+                    const itemHtml = `
+                        <div class="flex items-center justify-between p-3.5 bg-[#1a2333]/60 border border-slate-800 rounded-xl hover:border-slate-700/80 transition-colors">
+                            <div class="flex flex-col min-w-0 pr-2">
+                                <span class="text-xs font-mono text-gray-400 truncate max-w-[180px] sm:max-w-xs">${node.id}</span>
+                                <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
+                                    <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">${mimeType}</span>
+                                    <span>•</span>
+                                    <span>${sizeKB} KB</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2 shrink-0">
+                                <a href="https://arweave.net{node.id}" target="_blank" class="px-3 py-1.5 bg-[#0b0f19] text-teal-400 hover:text-teal-300 border border-slate-800 hover:border-teal-500/30 text-xs font-semibold rounded-lg transition-all">Ver Data</a>
+                                <a href="https://viewblock.io{node.id}" target="_blank" class="px-3 py-1.5 bg-[#0b0f19] text-gray-400 hover:text-gray-200 border border-slate-800 text-xs font-semibold rounded-lg transition-all">Explorador</a>
+                            </div>
+                        </div>
+                    `;
+                    fileList.innerHTML += itemHtml;
+                });
+
+                fileList.classList.remove('hidden');
+            } catch (err) {
+                console.error("Error consultando GraphQL:", err);
+                historyPlaceholder.innerText = "Error al mapear el historial desde la red.";
+            }
+        }
+
+        btnRefresh.addEventListener('click', fetchArweaveHistory);
     </script>
 </body>
 </html>
