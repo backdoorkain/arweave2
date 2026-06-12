@@ -1,67 +1,76 @@
 const express = require('express');
 const Arweave = require('arweave');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Inicializar Arweave apuntando a la Mainnet oficial
 const arweave = Arweave.init({
     host: 'arweave.net',
     port: 443,
     protocol: 'https'
 });
 
-// Habilitar un límite amplio para procesar archivos Base64 pesados en el cuerpo JSON
+// Habilitar un límite amplio para procesar los JSONs del cliente
 app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ extended: true, limit: '50mb' }));
-app.use(express.static(path.join(__dirname, 'public')));
 
-app.get('/', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+// --- SOLUCIÓN CRÍTICA ANTI-CACHÉ TOTAL ---
+// Obligamos a que ningún navegador ni servidor intermedio guarde copias viejas
+app.use((req, res, next) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.set('Expires', '0');
+    res.set('Pragma', 'no-cache');
+    next();
 });
 
-// --- RUTA 1 RECONSTRUIDA: ENSAMBLAR BYTES Y TRANSMITIR TRANSACCIÓN ---
+// Forzamos la lectura física del archivo index.html en cada petición para saltarnos express.static
+app.get('/', (req, res) => {
+    const htmlPath = path.join(__dirname, 'public', 'index.html');
+    if (fs.existsSync(htmlPath)) {
+        res.sendFile(htmlPath);
+    } else {
+        res.status(404).send('Archivo index.html no encontrado en la carpeta public.');
+    }
+});
+
+// El resto de recursos se sirven de forma estática normal
+app.use(express.static(path.join(__dirname, 'public')));
+
+// --- RUTA 1: TRANSMITIR TRANSACCIÓN FIRMADA ---
 app.post('/api/upload', async (req, res) => {
     try {
         const { transactionData, fileBufferBase64 } = req.body;
-        
         if (!transactionData || !fileBufferBase64) {
             return res.status(400).json({ error: 'Faltan datos de la transacción o el archivo.' });
         }
 
-        // 1. Reconstruir el objeto base enviado por la extensión Wander
         const transaction = arweave.transactions.fromRaw(transactionData);
-
-        // 2. Decodificar el string Base64 recibido del cliente a un Buffer binario real
         const fileBuffer = Buffer.from(fileBufferBase64, 'base64');
-
-        // 3. Inyectar de forma directa los bytes físicos dentro de la estructura de datos
         transaction.set('data', fileBuffer);
 
-        console.log(`>>> Ensamblando archivo. Tamaño binario: ${fileBuffer.length} bytes. Transacción: ${transaction.id}`);
+        console.log(`>>> Ensamblando binario: ${fileBuffer.length} bytes. ID: ${transaction.id}`);
 
-        // 4. Transmitir el paquete unificado de firmas y datos a la blockchain de Arweave
         const response = await arweave.transactions.post(transaction);
-
-        console.log(`>>> Estado de la transmisión en la blockchain: Código ${response.status}`);
+        console.log(`>>> Respuesta de Arweave Network: Código ${response.status}`);
 
         if (response.status === 200 || response.status === 202) {
             return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `La red Arweave rechazó el paquete con código: ${response.status}` });
+            return res.status(500).json({ error: `Arweave rechazó el paquete: ${response.status}` });
         }
     } catch (error) {
-        console.error("Error crítico durante el ensamblaje en el servidor:", error);
+        console.error("Error crítico en servidor:", error);
         return res.status(500).json({ error: error.message });
     }
 });
 
-// --- RUTA 2: LISTAR ARCHIVOS POR GRAPHQL MEDIANTE DIRECCIÓN DEL CLIENTE ---
+// --- RUTA 2: LISTAR ARCHIVOS (GRAPHQL) ---
 app.get('/api/files/:address', async (req, res) => {
     try {
         const address = req.params.address;
-        if (!address) return res.status(400).json({ error: 'Falta la dirección pública.' });
+        if (!address) return res.status(400).json({ error: 'Falta la dirección.' });
 
         const query = {
             query: `query {
@@ -92,23 +101,19 @@ app.get('/api/files/:address', async (req, res) => {
         });
 
         res.json({ success: true, files });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// --- RUTA 3: CONSULTAR PRECIO DE RED OFICIAL ---
+// --- RUTA 3: CONSULTAR PRECIO ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = parseInt(req.params.bytes);
         const winstonPrice = await arweave.transactions.getPrice(bytes);
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
         res.json({ success: true, ar: arPrice });
-    } catch (error) {
-        res.status(500).json({ error: error.message });
-    }
+    } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor Puente de Wander operativo en el puerto ${PORT}`);
+    console.log(`Servidor con bypass de caché corriendo en el puerto ${PORT}`);
 });
