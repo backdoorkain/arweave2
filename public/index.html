@@ -3,69 +3,101 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Arweave Explorer & Uploader</title>
-    <script src="https://tailwindcss.com"></script>
-</head>
-<body class="bg-slate-950 text-slate-100 font-sans min-h-screen">
-
-    <div class="max-w-4xl mx-auto p-6 space-y-8">
+    <title>Arweave Explorer & Uploader (Raw Edition)</title>
+    <!-- Estilos Web3 integrados directamente para evitar bloqueos del navegador -->
+    <style>
+        body { background-color: #020617; color: #f8fafc; font-family: system-ui, sans-serif; margin: 0; padding: 0; min-height: 100vh; }
+        .container { max-width: 1024px; margin: 0 auto; padding: 24px; }
+        header { text-align: center; padding: 32px 0; border-bottom: 1px solid #1e293b; margin-bottom: 32px; }
+        h1 { font-size: 2.25rem; font-weight: 800; margin: 0; background: linear-gradient(to right, #fbbf24, #ea580c); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
+        .card { background-color: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); display: flex; flex-direction: column; justify-content: space-between; }
+        h2 { font-size: 1.25rem; font-weight: 700; margin-top: 0; margin-bottom: 8px; display: flex; items-center: center; gap: 8px; }
+        .btn { width: 100%; border-radius: 12px; font-weight: 600; padding: 12px 16px; font-size: 1rem; cursor: pointer; transition: all 0.2s; box-sizing: border-box; border: 1px solid transparent; }
+        .btn-amber { background: linear-gradient(to right, #f59e0b, #ea580c); color: #ffffff; box-shadow: 0 10px 15px -3px rgba(234,88,12,0.15); }
+        .btn-amber:hover { background: linear-gradient(to right, #d97706, #ca8a04); }
+        .dropzone { border: 2px dashed #334155; border-radius: 12px; padding: 32px; text-align: center; cursor: pointer; position: relative; background-color: rgba(2,6,23,0.5); transition: all 0.2s; }
+        .dropzone:hover { border-color: #f59e0b; }
+        .dropzone input[type="file"] { position: absolute; top: 0; left: 0; width: 100%; height: 100%; opacity: 0; cursor: pointer; }
         
+        /* Notificaciones y Estados */
+        .msg { margin-top: 16px; padding: 12px; border-radius: 8px; font-size: 0.875rem; font-weight: 550; display: none; }
+        .msg-blue { background-color: #071437; border: 1px solid #002b66; color: #70a1ff; }
+        .msg-green { background-color: #061c11; border: 1px solid #053b1b; color: #4ade80; }
+        .msg-red { background-color: #1c0d0d; border: 1px solid #3b0505; color: #f87171; }
+        
+        /* Sección de Tabla */
+        .table-section { background-color: #0f172a; border: 1px solid #334155; padding: 24px; border-radius: 16px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.3); margin-top: 32px; }
+        .table-header { display: flex; justify-content: space-between; items-center: center; margin-bottom: 24px; align-items: center; }
+        .btn-refresh { background-color: #1e293b; border: 1px solid #334155; color: #cbd5e1; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; cursor: pointer; }
+        .btn-refresh:hover { background-color: #334155; }
+        .loader { text-align: center; color: #64748b; padding: 32px 0; font-size: 0.875rem; display: none; }
+        .table-wrapper { overflow-x: auto; border-radius: 12px; border: 1px solid rgba(51,65,85,0.6); }
+        table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.875rem; }
+        tr.th-row { background-color: #020617; border-bottom: 1px solid #334155; color: #94a3b8; }
+        th { padding: 16px; font-weight: 600; }
+        td { padding: 16px; border-bottom: 1px solid rgba(51,65,85,0.4); color: #e2e8f0; }
+        tr.data-row:hover { background-color: rgba(30,41,59,0.4); }
+        .btn-download { background-color: #1e293b; border: 1px solid #334155; color: #fbbf24; padding: 6px 12px; border-radius: 8px; font-size: 0.75rem; font-weight: 600; text-decoration: none; display: inline-block; }
+        .btn-download:hover { background-color: #334155; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
         <!-- Encabezado -->
-        <header class="text-center py-6 border-b border-slate-800">
-            <h1 class="text-4xl font-extrabold tracking-tight text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-orange-500">
-                Arweave Permaweb Box
-            </h1>
-            <p class="text-slate-400 mt-2 text-sm">Sube y almacena archivos para siempre en la blockchain</p>
+        <header>
+            <h1>Arweave Permaweb Box</h1>
+            <p style="color: #94a3b8; margin-top: 8px; font-size: 0.875rem;">Sube y almacena archivos para siempre directamente en la Blockchain (Precio Neto)</p>
         </header>
-
-        <!-- Sección de Subida -->
-        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-            <h2 class="text-xl font-bold mb-4 flex items-center gap-2">⚡ Sube un nuevo archivo</h2>
+        <!-- Bloque Principal de Operaciones -->
+        <div class="grid">
             
-            <form id="uploadForm" class="space-y-4">
-                <div class="border-2 border-dashed border-slate-700 hover:border-amber-500 transition rounded-xl p-6 text-center cursor-pointer relative bg-slate-950">
-                    <input type="file" id="fileInput" required class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
-                    <p id="fileLabel" class="text-slate-400 text-sm">Arrastra tu archivo aquí o haz clic para buscar</p>
-                </div>
+            <!-- Panel de Subida de Archivos Convencional -->
+            <div class="card">
+                <h2>⚡ Sube un nuevo archivo a la Mainnet</h2>
                 
-                <button type="submit" id="btnSubmit" class="w-full bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-600 hover:to-orange-700 text-white font-semibold py-3 px-4 rounded-xl transition shadow-lg shadow-orange-900/20 active:scale-[0.99]">
-                    Subir a la Red Principal
-                </button>
-            </form>
-            
-            <!-- Notificaciones -->
-            <div id="statusMessage" class="mt-4 p-3 rounded-lg text-sm font-medium hidden"></div>
-        </section>
+                <form id="uploadForm" style="display: flex; flex-direction: column; gap: 16px; margin: 16px 0 0 0;">
+                    <div class="dropzone">
+                        <input type="file" id="fileInput" required>
+                        <div style="font-size: 1.875rem; margin-bottom: 8px;">📁</div>
+                        <p id="fileLabel" style="color: #94a3b8; font-size: 0.875rem; margin: 0;">Arrastra tu archivo aquí o haz clic para buscar</p>
+                    </div>
+                    
+                    <button type="submit" id="btnSubmit" class="btn btn-amber">Subir a la Red Principal</button>
+                </form>
+                
+                <!-- Caja de Notificaciones de Estado -->
+                <div id="statusMessage" class="msg"></div>
+            </div>
+        </div>
 
-        <!-- Sección de Listado -->
-        <section class="bg-slate-900 border border-slate-800 p-6 rounded-2xl shadow-xl">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-xl font-bold flex items-center gap-2">📁 Tus Archivos Guardados</h2>
-                <button id="btnRefresh" class="text-xs bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 py-1.5 px-3 rounded-lg transition">
-                    🔄 Actualizar
-                </button>
+        <!-- Sección de Listado de Archivos -->
+        <section class="table-section">
+            <div class="table-header">
+                <h2>📁 Tus Archivos Guardados</h2>
+                <button id="btnRefresh" class="btn-refresh">🔄 Actualizar</button>
             </div>
 
-            <div id="loadingList" class="text-center text-slate-500 py-8 hidden">Buscando transacciones en Arweave...</div>
+            <div id="loadingList" class="loader">Buscando transacciones en Arweave...</div>
 
-            <!-- Tabla/Lista de Archivos -->
-            <div class="overflow-x-auto">
-                <table class="w-full text-left border-collapse text-sm">
+            <!-- Tabla de Datos Descentralizada -->
+            <div class="table-wrapper">
+                <table>
                     <thead>
-                        <tr class="border-b border-slate-800 text-slate-400">
-                            <th class="pb-3 font-semibold">Nombre</th>
-                            <th class="pb-3 font-semibold">Tipo</th>
-                            <th class="pb-3 font-semibold text-right">Acción</th>
+                        <tr class="th-row">
+                            <th>Nombre</th>
+                            <th>Tipo</th>
+                            <th style="text-align: right;">Acción</th>
                         </tr>
                     </thead>
-                    <tbody id="filesTableBody" class="divide-y divide-slate-800/50">
-                        <!-- Se llena dinámicamente -->
+                    <tbody id="filesTableBody">
+                        <!-- Los datos se inyectan dinámicamente -->
                     </tbody>
                 </table>
             </div>
         </section>
     </div>
-
     <!-- Lógica de Frontend -->
     <script>
         const fileInput = document.getElementById('fileInput');
@@ -77,51 +109,52 @@
         const filesTableBody = document.getElementById('filesTableBody');
         const loadingList = document.getElementById('loadingList');
 
-        // Mostrar nombre del archivo seleccionado
+        // Mostrar nombre del archivo seleccionado de forma dinámica
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
                 fileLabel.innerText = `Seleccionado: ${e.target.files[0].name}`;
-                fileLabel.classList.remove('text-slate-400');
-                fileLabel.classList.add('text-amber-400', 'font-medium');
+                fileLabel.style.color = '#fbbf24';
+                fileLabel.style.fontWeight = '600';
             }
         });
 
-        // Enviar formulario de subida
+        // Enviar formulario de subida a Arweave Raw
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             
             const formData = new FormData();
             formData.append('file', fileInput.files[0]);
 
-            // Deshabilitar UI durante carga
+            // Deshabilitar interfaz de usuario durante la carga
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando y enviando transacción AR...";
-            showMessage('Procesando archivo en el servidor y transmitiendo a la blockchain...', 'bg-blue-950 border border-blue-800 text-blue-300');
-
+            showMessage('Procesando archivo en el servidor y transmitiendo a la blockchain...', 'msg-blue');
+            
             try {
                 const response = await fetch('/api/upload', { method: 'POST', body: formData });
                 const data = await response.json();
-
+                
                 if (data.success) {
-                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}. Aparecerá en la lista en unos minutos.`, 'bg-emerald-950 border border-emerald-800 text-emerald-300');
+                    showMessage(`🎉 ¡Enviado con éxito! ID de Transacción: ${data.txId}. Aparecerá en la lista en unos minutos.`, 'msg-green');
                     uploadForm.reset();
                     fileLabel.innerText = "Arrastra tu archivo aquí o haz clic para buscar";
-                    fileLabel.className = "text-slate-400 text-sm";
+                    fileLabel.style.color = '#94a3b8';
+                    fileLabel.style.fontWeight = '400';
                     setTimeout(loadFiles, 2000);
                 } else {
-                    showMessage(`❌ Error: ${data.error}`, 'bg-rose-950 border border-rose-800 text-rose-300');
+                    showMessage(`❌ Error: ${data.error}`, 'msg-red');
                 }
             } catch (err) {
-                showMessage(`❌ Error de conexión al servidor`, 'bg-rose-950 border border-rose-800 text-rose-300');
+                showMessage(`❌ Error de conexión al servidor`, 'msg-red');
             } finally {
                 btnSubmit.disabled = false;
                 btnSubmit.innerText = "Subir a la Red Principal";
             }
         });
 
-        // Cargar lista de archivos mediante GraphQL
+        // Cargar lista de archivos mediante GraphQL nativo de Arweave
         async function loadFiles() {
-            loadingList.classList.remove('hidden');
+            loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
             
             try {
@@ -131,12 +164,12 @@
                 if (data.success && data.files.length > 0) {
                     data.files.forEach(file => {
                         const tr = document.createElement('tr');
-                        tr.className = "hover:bg-slate-900/40 transition";
+                        tr.className = "data-row";
                         tr.innerHTML = `
-                            <td class="py-3 font-medium text-slate-200 max-w-[200px] truncate">${file.name}</td>
-                            <td class="py-3 text-slate-400 text-xs">${file.type}</td>
-                            <td class="py-3 text-right">
-                                <a href="${file.url}" target="_blank" class="inline-flex items-center gap-1 bg-slate-800 hover:bg-slate-700 text-amber-400 px-3 py-1.5 rounded-lg text-xs font-semibold transition border border-slate-700">
+                            <td style="padding: 16px; font-weight: 500; max-w-[220px]; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${file.name}</td>
+                            <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">${file.type}</td>
+                            <td style="padding: 16px; text-align: right;">
+                                <a href="${file.url}" target="_blank" class="btn-download">
                                     ⬇️ Descargar
                                 </a>
                             </td>
@@ -144,23 +177,24 @@
                         filesTableBody.appendChild(tr);
                     });
                 } else {
-                    filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-slate-500 py-6">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
+                    filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 32px 0;">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
                 }
             } catch (err) {
-                filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-rose-400 py-6">Error al cargar la lista.</td></tr>`;
+                filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #f87171; padding: 32px 0;">Error al cargar la lista.</td></tr>`;
             } finally {
-                loadingList.classList.add('hidden');
+                loadingList.style.display = 'none';
             }
         }
 
-        function showMessage(text, classes) {
+        function showMessage(text, className) {
             statusMessage.innerText = text;
-            statusMessage.className = `mt-4 p-3 rounded-lg text-sm font-medium ${classes}`;
+            statusMessage.className = `msg ${className}`;
+            statusMessage.style.display = 'block';
         }
 
         btnRefresh.addEventListener('click', loadFiles);
         
-        // Carga inicial al abrir la página
+        // Carga inicial automática al abrir la página
         window.addEventListener('DOMContentLoaded', loadFiles);
     </script>
 </body>
