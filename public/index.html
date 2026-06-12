@@ -180,11 +180,11 @@
             walletLabel.innerText = "Conectando...";
             
             try {
-                // PERMISOS EN FORMATO OFICIAL (MINÚSCULAS)
+                // SOLICITUD DE PERMISOS ESTÁNDAR Y OFICIALES
                 await window.arweaveWallet.connect([
-                    "access_address",
-                    "access_balance",
-                    "sign_transaction"
+                    "ACCESS_ADDRESS",
+                    "ACCESS_BALANCE",
+                    "SIGN_TRANSACTION"
                 ]);
                 
                 userAddress = await window.arweaveWallet.getActiveAddress();
