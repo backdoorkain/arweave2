@@ -116,7 +116,7 @@ app.get('/api/files', async (req, res) => {
                 
                 // CORRECCIÓN DEFINITIVA: Añadimos las diagonales manuales estrictas a cada enlace base
                 url: "https://arweave.net/" + txId,
-                txUrl: "https://viewblock.io/" + txId
+                txUrl: "https://viewblock.io/arweave/tx/" + txId
             };
         });
 
