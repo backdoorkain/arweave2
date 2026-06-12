@@ -8,14 +8,12 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3000;
 
-// Inicializar Arweave apuntando a la Mainnet oficial
 const arweave = Arweave.init({
     host: 'arweave.net',
     port: 443,
     protocol: 'https'
 });
 
-// Cargar billetera segura desde la Variable de Entorno de Render
 let wallet;
 let walletAddress = "";
 
@@ -41,7 +39,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- RUTA 1: SUBIR ARCHIVO RAW AL COSTO REAL DE RED ---
+// --- RUTA 1: SUBIR ARCHIVO RAW ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
@@ -58,7 +56,6 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
             reward: priceInWinston
         }, wallet);
         
-        // ETIQUETA UNIFICADA: Usamos la del primer proyecto para rescatar tu historial
         transaction.addTag('Content-Type', req.file.mimetype);
         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
         transaction.addTag('File-Name', req.file.originalname);
@@ -79,7 +76,7 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// --- RUTA 2: LISTAR ARCHIVOS (GraphQL UNIFICADO) ---
+// --- RUTA 2: LISTAR ARCHIVOS ---
 app.get('/api/files', async (req, res) => {
     try {
         if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
@@ -117,7 +114,7 @@ app.get('/api/files', async (req, res) => {
     }
 });
 
-// --- RUTA 3: CONSULTAR BALANCE REAL ON-CHAIN ---
+// --- RUTA 3: CONSULTAR BALANCE ---
 app.get('/api/balance', async (req, res) => {
     try {
         if (!walletAddress) return res.status(500).json({ error: 'Dirección no lista.' });
@@ -129,15 +126,22 @@ app.get('/api/balance', async (req, res) => {
     }
 });
 
-// --- RUTA 4: CONSULTAR PRECIO DE RED (LA QUE TE FALTABA) ---
+// --- RUTA 4 CORREGIDA: ENRUTADOR SEGURO PARA CALCULAR PRECIO (EVITA CORS) ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = req.params.bytes;
+        
+        // El servidor hace el fetch de forma segura (A Node no lo bloquea el CORS)
         const response = await fetch(`https://arweave.net{bytes}`);
-        const winstonPrice = await response.text();
-        const arPrice = arweave.ar.winstonToAr(winstonPrice);
+        const winstonPriceText = await response.text(); // <--- Extraemos la respuesta como texto plano crudo
+
+        // Convertimos los Winston masivos a formato de tokens AR legibles utilizando el SDK
+        const arPrice = arweave.ar.winstonToAr(winstonPriceText.trim());
+        
+        // Devolvemos la respuesta limpia en un formato JSON estándar que el frontend entiende perfectamente
         res.json({ success: true, ar: arPrice });
     } catch (error) {
+        console.error("Error al calcular precio en backend:", error);
         res.status(500).json({ error: error.message });
     }
 });
