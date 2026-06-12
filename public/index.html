@@ -180,11 +180,11 @@
             walletLabel.innerText = "Conectando...";
             
             try {
-                // LISTA DE PERMISOS OFICIALES Y ESTÁNDAR PARA WANDER
+                // PERMISOS EN FORMATO OFICIAL (MINÚSCULAS)
                 await window.arweaveWallet.connect([
-                    "ACCESS_ADDRESS",
-                    "ACCESS_BALANCE",
-                    "SIGN_TRANSACTION"
+                    "access_address",
+                    "access_balance",
+                    "sign_transaction"
                 ]);
                 
                 userAddress = await window.arweaveWallet.getActiveAddress();
@@ -203,7 +203,8 @@
                 btnSubmit.style.opacity = "1";
                 checkArweaveBalance();
                 loadFiles();
-            } catch (err) {
+            }
+            catch (err) {
                 console.error("Error exacto capturado:", err); // Esto nos dirá el mensaje real si vuelve a fallar
                 walletLabel.innerText = "Error de Conexión";
                 walletIcon.innerText = "";
