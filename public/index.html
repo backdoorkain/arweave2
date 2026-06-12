@@ -156,40 +156,35 @@
             }
         }
 
-        // 2. Lógica de la calculadora integrada con el motor oficial que descubriste
+        // 2. Lógica de la calculadora modificada para llamar a TU propio backend (EVITA EL ERROR CORS)
         function calculateCost(totalBytes) {
             if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
                 return;
             }
 
-            // Hacemos el fetch directo al gateway de Arweave emulando el script original
-            fetch("https://arweave.net" + totalBytes, {
-                "body": null,
-                "method": "GET",
-                "mode": "cors",
+            // CORRECCIÓN CRÍTICA: Apunta a tu servidor de Render local en lugar de la URL externa bloqueada
+            fetch("/api/price/" + totalBytes, {
+                "method": "GET"
             }).then(function(response) {
-                // Soportamos si el nodo responde texto crudo o JSON plano
-                return response.clone().json().catch(() => response.text());
+                return response.json();
             }).then(function(data) {
-                // Si viene como JSON o texto, extraemos el valor numérico de Winston
-                let storagePriceWinston = (typeof data === 'object') ? data.winston || data : data;
-                
-                // Conversión matemática exacta a tokens AR
-                let storagePriceAR = storagePriceWinston / 1000000000000;
-                
-                // Pintar el resultado formateado en la interfaz
-                calcRes.innerText = parseFloat(storagePriceAR).toFixed(6);
+                if (data.success) {
+                    // Muestra el valor que tu backend ya convirtió limpiamente a AR tokens
+                    calcRes.innerText = parseFloat(data.ar).toFixed(6);
+                } else {
+                    calcRes.innerText = "Error";
+                }
             }).catch(function(error) {
-                console.error("Error en motor oficial de cálculo:", error);
+                console.error("Error en comunicación con backend:", error);
                 calcRes.innerText = "Error";
             });
         }
 
-        // DETECCIÓN AUTOMÁTICA CORREGIDA: Acceso estricto al índice cero [0] del arreglo de archivos
+        // Detectar automáticamente el tamaño del archivo
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
-                const file = e.target.files[0]; // <--- CORRECCIÓN TÉCNICA PRINCIPAL
+                const file = e.target.files[0]; // Acceso estricto al archivo real
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -206,7 +201,7 @@
                     calcUnit.value = "MB";
                 }
 
-                // Disparar el motor oficial de cálculo directo
+                // Disparar la consulta al backend
                 calculateCost(sizeInBytes);
             }
         });
@@ -215,7 +210,7 @@
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]); // <--- Enviamos el archivo indexado correctamente
+            formData.append('file', fileInput.files[0]);
 
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando y enviando transacción AR...";
@@ -234,10 +229,7 @@
                     calcSize.value = '';
                     calcRes.innerText = "0.000000";
                     
-                    setTimeout(() => {
-                        loadFiles();
-                        checkArweaveBalance();
-                    }, 4000);
+                    setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
                 } else {
                     showMessage(`❌ Error: ${data.error}`, 'msg-red');
                 }
@@ -249,7 +241,7 @@
             }
         });
 
-        // Cargar lista de archivos unificada mediante GraphQL
+        // Cargar lista de archivos mediante GraphQL
         async function loadFiles() {
             loadingList.style.display = 'block';
             filesTableBody.innerHTML = '';
