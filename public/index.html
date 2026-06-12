@@ -236,7 +236,7 @@
         // 4. DETECTAR TAMAÑO Y CONFIGURAR CALCULADORA AUTOMÁTICA
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0]; // <-- CORRECCIÓN CRÍTICA: Accedemos al archivo crudo [0]
+                const file = e.target.files[0]; // Acceso nativo indexado correcto
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -257,7 +257,7 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA CORREGIDA PASANDO EL BINARIO CERO [0]
+        // 5. SUBIDA ASÍNCRONA UTILIZANDO EL INYECTOR GLOBAL DE WANDER
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!userAddress) {
@@ -266,11 +266,11 @@
             }
 
             if (fileInput.files.length === 0) return;
-            const fileReal = fileInput.files[0]; // <-- CORRECCIÓN CRÍTICA: Obtenemos el archivo [0] para el lector
+            const fileReal = fileInput.files[0]; 
             
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Abriendo Wander para firmar...";
-            showMessage('Abriendo la extensión Wander. Por favor aprueba la firma de la transacción...', 'msg-blue');
+            showMessage('Invocando extensión Wander. Por favor aprueba la transacción en la ventana emergente...', 'msg-blue');
 
             try {
                 const fileReader = new FileReader();
@@ -279,32 +279,25 @@
                         const arrayBuffer = event.target.result;
                         const dataBuffer = new Uint8Array(arrayBuffer);
 
-                        const priceResponse = await fetch("/api/price/" + dataBuffer.length);
-                        const priceData = await priceResponse.json();
-                        
-                        if (!priceData.success) throw new Error("No se pudo estimar la recompensa.");
-
-                        const baseWinston = arweave.ar.arToWinston(priceData.ar);
-                        const boostedReward = (BigInt(baseWinston) * 14n / 10n).toString();
-
-                        // Crear objeto de transacción básico con los bytes de la imagen
+                        // A. Crear la transacción pasando los datos binarios crudos de forma local
                         const transaction = await arweave.createTransaction({
-                            data: dataBuffer,
-                            reward: boostedReward
+                            data: dataBuffer
                         });
 
-                        // Inyectar etiquetas usando las propiedades del archivo real [0]
+                        // Inyectar metadatos y etiquetas requeridas
                         transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
                         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                         transaction.addTag('File-Name', fileReal.name);
 
-                        // Disparar la firma a través del objeto global con permisos de Wander
-                        await arweave.transactions.sign(transaction, "use_wallet");
+                        console.log(">>> Invocando ventana emergente de Wander...");
+
+                        // B. FORMA CORRECTA ACTUAL: Se llama al método sign directamente desde el objeto inyectado window
+                        await window.arweaveWallet.sign(transaction);
 
                         showMessage('Transacción firmada con Wander. Transmitiendo bytes seguros...', 'msg-blue');
                         btnSubmit.innerText = "Transmitiendo a Render...";
 
-                        // Transmitir la estructura firmada al backend puente [1.1]
+                        // C. Enviar la transacción estructurada y firmada a tu backend puente [1.1]
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
@@ -327,14 +320,13 @@
                             showMessage(`❌ Error en transmisión: ${serverData.error}`, 'msg-red');
                         }
                     } catch (err) {
-                        showMessage(`❌ Error criptográfico: ${err.message}`, 'msg-red');
+                        showMessage(`❌ Error de Wander: ${err.message}`, 'msg-red');
                     } finally {
                         btnSubmit.disabled = false;
                         btnSubmit.innerText = "Subir a la Red Principal";
                     }
                 };
                 
-                // CORRECCIÓN DEFINITIVA: Le pasamos el archivo físico indexado [0] al lector de buffers
                 fileReader.readAsArrayBuffer(fileReal);
                 
             } catch (err) {
@@ -384,3 +376,4 @@
     </script>
 </body>
 </html>
+
