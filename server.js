@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- RUTA 1 REPARADA: SUBIR ARCHIVO CON MULTIPLICADOR DE RECOMPENSA (INCENTIVO) ---
+// --- RUTA 1: SUBIR ARCHIVO RAW ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
@@ -50,20 +50,12 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const dataBuffer = Buffer.from(fileData);
         
         const byteSize = dataBuffer.length;
-        
-        // 1. Obtener el precio base en Winston
         const basePriceInWinston = await arweave.transactions.getPrice(byteSize);
-        
-        // 2. INCENTIVO DE VELOCIDAD: Multiplicamos el costo por 1.4 usando BigInt para no perder precisión
-        // Esto le da prioridad máxima ante los mineros por fracciones insignificantes de centavo
         const boostedReward = (BigInt(basePriceInWinston) * 14n / 10n).toString();
 
-        console.log(`>>> Tamaño: ${byteSize} bytes. Recompensa base: ${basePriceInWinston}. Recompensa con incentivo: ${boostedReward}`);
-
-        // 3. Crear la transacción asignando el incentivo
         const transaction = await arweave.createTransaction({ 
             data: dataBuffer,
-            reward: boostedReward // <-- EVITA QUE LA TRANSACCIÓN SE QUEDE CONGELADA
+            reward: boostedReward
         }, wallet);
         
         transaction.addTag('Content-Type', req.file.mimetype);
@@ -71,28 +63,22 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         transaction.addTag('File-Name', req.file.originalname);
 
         await arweave.transactions.sign(transaction, wallet);
-        
-        // 4. Enviar los datos al gateway de Mainnet
         const response = await arweave.transactions.post(transaction);
 
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
-        console.log(`>>> Respuesta del nodo validador de Arweave: Código ${response.status}`);
-
-        // Los nodos aceptan de inmediato la transacción con códigos 200 o 202
         if (response.status === 200 || response.status === 202) {
             return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `Arweave rechazó la firma con código: ${response.status}` });
+            return res.status(500).json({ error: `Error Arweave: ${response.status}` });
         }
     } catch (error) {
-        console.error("Error crítico durante el envío:", error);
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         return res.status(500).json({ error: error.message });
     }
 });
 
-// --- RUTA 2: LISTAR ARCHIVOS ---
+// --- RUTA 2 REPARADA: LISTAR ARCHIVOS CON LOS DOS LINKS CORREGIDOS ---
 app.get('/api/files', async (req, res) => {
     try {
         if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
@@ -116,11 +102,18 @@ app.get('/api/files', async (req, res) => {
             const tags = edge.node.tags;
             const nameTag = tags.find(t => t.name === 'File-Name');
             const typeTag = tags.find(t => t.name === 'Content-Type');
+            
+            // CORRECCIÓN TÉCNICA: Usamos comillas invertidas e inyectamos el ID de forma limpia
+            const txId = edge.node.id;
+            
             return {
-                id: edge.node.id,
+                id: txId,
                 name: nameTag ? nameTag.value : 'Archivo sin nombre',
                 type: typeTag ? typeTag.value : 'Desconocido',
-                url: `https://arweave.net{edge.node.id}`
+                
+                // Mapeamos los dos enlaces independientes de forma nativa
+                url: `https://arweave.net{txId}`,               // Enlace directo al archivo binario
+                txUrl: `https://viewblock.io{txId}`   // Enlace de auditoría en ViewBlock
             };
         });
 
@@ -146,11 +139,8 @@ app.get('/api/balance', async (req, res) => {
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = parseInt(req.params.bytes);
-        if (isNaN(bytes) || bytes <= 0) return res.status(400).json({ error: 'Bytes inválidos.' });
-
         const winstonPrice = await arweave.transactions.getPrice(bytes);
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
-        
         res.json({ success: true, ar: arPrice });
     } catch (error) {
         res.status(500).json({ error: error.message });
@@ -160,4 +150,3 @@ app.get('/api/price/:bytes', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor Raw corriendo en el puerto ${PORT}`);
 });
-
