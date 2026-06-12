@@ -115,8 +115,8 @@ app.get('/api/files', async (req, res) => {
                 type: typeTag ? typeTag.value : 'Desconocido',
                 
                 // CORRECCIÓN DEFINITIVA: Añadimos las diagonales manuales estrictas a cada enlace base
-                url: "https://arweave.net" + txId,
-                txUrl: "https://viewblock.io" + txId
+                url: "https://arweave.net/" + txId,
+                txUrl: "https://viewblock.io/" + txId
             };
         });
 
