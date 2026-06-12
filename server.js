@@ -89,53 +89,48 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
     }
 });
 
-// --- RUTA 2: LISTAR ARCHIVOS (GraphQL) ---
-app.get('/api/files', async (req, res) => {
+// --- LISTAR ARCHIVOS (GraphQL) ---
+// --- RUTA 3: CONSULTAR BALANCE GENERAL DE LA WALLET EN ARWEAVE ---
+app.get('/api/balance', async (req, res) => {
     try {
-        if (!walletAddress) return res.status(500).json({ error: 'Dirección de billetera no lista.' });
-
-        // Consulta GraphQL oficial para buscar transacciones de tu billetera con la etiqueta de nuestra App
-        const query = {
-            query: `
-            query {
-              transactions(
-                owners: ["${walletAddress}"]
-                tags: { name: "App-Name", values: ["MiArweaveUploaderBasico"] }
-                first: 50
-              ) {
-                edges {
-                  node {
-                    id
-                    tags {
-                      name
-                      value
-                    }
-                  }
-                }
-              }
-            }`
-        };
-
-        const response = await arweave.api.post('/graphql', query);
-        const edges = response.data.data.transactions.edges;
-
-        // Formatear los resultados para el frontend
-        const files = edges.map(edge => {
-            const tags = edge.node.tags;
-            const nameTag = tags.find(t => t.name === 'File-Name');
-            const typeTag = tags.find(t => t.name === 'Content-Type');
-            
-            return {
-                id: edge.node.id,
-                name: nameTag ? nameTag.value : 'Archivo sin nombre',
-                type: typeTag ? typeTag.value : 'Desconocido',
-                url: `https://arweave.net{edge.node.id}` // La descarga es directa desde el gateway de Arweave
-            };
-        });
-
-        res.json({ success: true, files });
+        if (!walletAddress) {
+            // Reutilizamos el walletAddress que calcula tu servidor al arrancar
+            return res.status(500).json({ error: 'Dirección de billetera no lista.' });
+        }
+        // Consultar el saldo directo en la unidad mínima Winston
+        const winstonBalance = await arweave.wallets.getBalance(walletAddress);
+        // Convertirlo a un formato legible de tokens AR
+        const arBalance = arweave.ar.winstonToAr(winstonBalance);
+        
+        res.json({ success: true, balance: arBalance });
     } catch (error) {
-        console.error(error);
+        console.error("Error al consultar balance general:", error);
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- RUTA 4: CONSULTAR PRECIO OFICIAL DE LA BLOCKCHAIN POR BYTES ---
+app.get('/api/price/:bytes', async (req, res) => {
+    try {
+        const bytes = req.params.bytes;
+        if (!bytes || isNaN(bytes)) {
+            return res.status(400).json({ error: 'Cantidad de bytes inválida.' });
+        }
+        
+        // Petición directa al endpoint oficial de precios de la red principal
+        const response = await fetch(`https://arweave.net{bytes}`);
+        const winstonPrice = await response.text();
+        
+        // Convertir el costo de Winston a AR utilizando el conversor del SDK
+        const arPrice = arweave.ar.winstonToAr(winstonPrice);
+        
+        res.json({ 
+            success: true, 
+            winston: winstonPrice, 
+            ar: arPrice 
+        });
+    } catch (error) {
+        console.error("Error al calcular precio de red:", error);
         res.status(500).json({ error: error.message });
     }
 });
