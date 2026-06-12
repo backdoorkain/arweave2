@@ -34,7 +34,7 @@
     </div>
 
     <script>
-        // Inicializar el SDK oficial de Arweave apuntando a la red principal
+        // Inicialización adaptada para el bundle de navegador de Arweave
         const arweave = Arweave.init({
             host: 'arweave.net',
             port: 443,
@@ -84,16 +84,17 @@
 
         // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO ---
         btnSubmit.addEventListener('click', async () => {
-            const file = fileInput.files[0];
-            if (!file) {
+            const files = fileInput.files;
+            if (files.length === 0) {
                 alert("Por favor, selecciona un archivo primero.");
                 return;
             }
-
+            
+            const file = files[0]; // Extrae el archivo real de la lista
             uploadResult.innerText = "Procesando archivo...";
 
             try {
-                // 1. Leer el archivo en el navegador como ArrayBuffer binario
+                // Leer el archivo en el navegador como ArrayBuffer binario
                 const reader = new FileReader();
                 reader.readAsArrayBuffer(file);
                 
@@ -101,6 +102,21 @@
                     const arrayBuffer = e.target.result;
                     
                     uploadResult.innerText = "Creando transacción en Arweave...";
+                    
+                    // Crear la transacción base de Arweave
+                    const transaction = await arweave.transactions.create({
+                        data: 'PLACEHOLDER_DATA' 
+                    });
+
+                    // Añadir la etiqueta (Tag) del tipo de archivo
+                    transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+
+                    uploadResult.innerText = "Esperando firma en el pop-up de Wander...";
+                    
+                    // INVOCA EL POP-UP DE FIMA EN TU PANTALLA
+                    await arweave.transactions.sign(transaction, "use_wallet");
+
+                    uploadResult.innerText = "Archivo firmado. Enviando al servidor...";
                     
                     // 2. Crear la transacción base sin la data binaria pesada (para que pase rápido a Wander)
                     const transaction = await arweave.transactions.create({
