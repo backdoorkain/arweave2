@@ -236,7 +236,9 @@
         // 4. DETECTAR TAMAÑO Y CONFIGURAR CALCULADORA AUTOMÁTICA
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0]; // Acceso nativo indexado correcto
+                const file = e.target.files[0]; // CORREGIDO: Extraemos el archivo real índice 0
+                console.log(">>> [DEBUG 1] Archivo seleccionado por usuario:", file.name, "Peso:", file.size, "bytes");
+                
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -257,44 +259,51 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA: FIRMA LIGERA EN WANDER Y ENVÍO CONJUNTO
+        // 5. SUBIDA ASÍNCRONA CON AUDITORÍA DE CONSOLA PASO A PASO
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            console.log(">>> [DEBUG 2] Formulario enviado. Dirección activa:", userAddress);
+
             if (!userAddress) {
                 alert("Por favor conecta tu billetera Wander primero.");
                 return;
             }
 
-            if (fileInput.files.length === 0) return;
-            const fileReal = fileInput.files[0]; 
+            if (fileInput.files.length === 0) {
+                console.error(">>> [DEBUG ERROR] No hay archivos en el input");
+                return;
+            }
             
+            const fileReal = fileInput.files[0]; // CORREGIDO: Extraemos el binario real índice 0
+            console.log(">>> [DEBUG 3] Iniciando proceso para el archivo:", fileReal.name);
+
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Abriendo Wander...";
-            showMessage('Abriendo Wander. Por favor aprueba la firma de los metadatos...', 'msg-blue');
+            showMessage('Abriendo Wander. Por favor aprueba la firma...', 'msg-blue');
 
             try {
-                // SOLUCIÓN CRÍTICA: Creamos una transacción VACÍA (sin el buffer pesado) para que Wander no se congele
+                console.log(">>> [DEBUG 4] Creando estructura de transacción vacía en Arweave...");
                 const transaction = await arweave.createTransaction({});
 
-                // Inyectamos únicamente las etiquetas ligeras de texto
+                // Inyectamos las etiquetas de texto de forma segura
                 transaction.addTag('Content-Type', fileReal.type || 'application/octet-stream');
                 transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                 transaction.addTag('File-Name', fileReal.name);
-
-                console.log(">>> Invocando pop-up de Wander de forma ligera...");
                 
-                // Wander abrirá la ventana instantáneamente porque no pesa nada
+                console.log(">>> [DEBUG 5] Transacción preparada con etiquetas. Llamando a window.arweaveWallet.sign...");
+
+                // INVOCACIÓN CON ALERTA DE SEGUIMIENTO
                 await window.arweaveWallet.sign(transaction);
-
+                
+                console.log(">>> [DEBUG 6] ¡Wander firmó con éxito! ID generado:", transaction.id);
                 showMessage('Firmado con éxito. Convirtiendo archivo a Base64...', 'msg-blue');
-                btnSubmit.innerText = "Transmitiendo a Render...";
 
-                // Leer el archivo como Base64 para mandárselo seguro al servidor puente
                 const fileReader = new FileReader();
                 fileReader.onload = async (event) => {
-                    const base64Data = event.target.result.split(',')[1];
+                    console.log(">>> [DEBUG 7] FileReader completó la lectura en RAM. Preparando Base64...");
+                    const base64Data = event.target.result.split(',')[1]; // Extraemos solo los datos crudos
 
-                    // Enviamos al backend: la transacción firmada y el archivo por separado
+                    console.log(">>> [DEBUG 8] Enviando JSON al servidor puente en Render...");
                     const response = await fetch('/api/upload', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -305,6 +314,7 @@
                     });
                     
                     const serverData = await response.json();
+                    console.log(">>> [DEBUG 9] Respuesta recibida del servidor puente:", serverData);
 
                     if (serverData.success) {
                         showMessage(`🎉 ¡Completado! ID de Transacción: ${serverData.txId}`, 'msg-green');
@@ -314,14 +324,16 @@
                         fileLabel.style.fontWeight = '400';
                         calcSize.value = '';
                         calcRes.innerText = "0.000000";
-
                         setTimeout(() => { loadFiles(); checkArweaveBalance(); }, 4000);
                     } else {
                         showMessage(`❌ Error: ${serverData.error}`, 'msg-red');
                     }
                 };
-                fileReader.readAsDataURL(fileReal); // Lee el archivo de forma asíncrona
+                
+                fileReader.readAsDataURL(fileReal);
+
             } catch (err) {
+                console.error(">>> [DEBUG CRÍTICO] El proceso falló en el Frontend:", err);
                 showMessage(`❌ Error de Wander: ${err.message}`, 'msg-red');
                 btnSubmit.disabled = false;
                 btnSubmit.innerText = "Subir a la Red Principal";
