@@ -1,11 +1,9 @@
 const express = require('express');
-const multer = require('multer');
 const Arweave = require('arweave');
-const fs = require('fs');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3000;
 
 // Inicializar Arweave apuntando a la Mainnet oficial
@@ -15,85 +13,67 @@ const arweave = Arweave.init({
     protocol: 'https'
 });
 
-let wallet;
-let walletAddress = "";
+// Habilitar límites amplios para procesar paquetes JSON con archivos Base64 del cliente
+app.use(express.json({ limit: '100mb' }));
+app.use(express.urlencoded({ extended: true, limit: '100mb' }));
 
-try {
-    if (process.env.ARWEAVE_WALLET) {
-        wallet = JSON.parse(process.env.ARWEAVE_WALLET);
-        arweave.wallets.jwkToAddress(wallet).then(address => {
-            walletAddress = address;
-            console.log(`>>> Conectado a Arweave Raw. Dirección: ${address}`);
-        });
-    } else {
-        console.error(">>> ERROR: Configura la variable ARWEAVE_WALLET en Render.");
-    }
-} catch (error) {
-    console.error(">>> ERROR: Billetera inválida.");
-}
-
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// Forzar la deshabilitación de la caché del lado del servidor
+// Forzar la deshabilitación de la caché en el navegador y servidores intermedios
 app.use((req, res, next) => {
-    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private');
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate, private, max-age=0');
+    res.set('Expires', '0');
+    res.set('Pragma', 'no-cache');
     next();
 });
 
+// Cargar index.html físicamente en la raíz
 app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- RUTA 1: SUBIR ARCHIVO RAW ---
-app.post('/api/upload', upload.single('file'), async (req, res) => {
+// --- RUTA 1: TRANSMITIR TRANSACCIÓN PRE-FIRMADA DESDE FRONTEND ---
+app.post('/api/upload', async (req, res) => {
     try {
-        if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
-        if (!wallet) return res.status(500).json({ error: 'Billetera no configurada.' });
+        const { transactionData, fileBufferBase64 } = req.body;
+        if (!transactionData || !fileBufferBase64) {
+            return res.status(400).json({ error: 'Faltan datos de la transacción o el archivo.' });
+        }
 
-        const fileData = fs.readFileSync(path.resolve(req.file.path));
-        const dataBuffer = Buffer.from(fileData);
-        const byteSize = dataBuffer.length;
+        // Reconstruir la estructura de la transacción generada y firmada en el cliente
+        const transaction = arweave.transactions.fromRaw(transactionData);
         
-        const basePriceInWinston = await arweave.transactions.getPrice(byteSize);
-        const boostedReward = (BigInt(basePriceInWinston) * 14n / 10n).toString();
+        // Convertir los datos Base64 devueltos en el Buffer binario final
+        const fileBuffer = Buffer.from(fileBufferBase64, 'base64');
+        transaction.data = fileBuffer;
 
-        const transaction = await arweave.createTransaction({ 
-            data: dataBuffer,
-            reward: boostedReward
-        }, wallet);
+        console.log(`>>> Ensamblado binario completado: ${fileBuffer.length} bytes. ID TX: ${transaction.id}`);
         
-        transaction.addTag('Content-Type', req.file.mimetype);
-        transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
-        transaction.addTag('File-Name', req.file.originalname);
-
-        await arweave.transactions.sign(transaction, wallet);
+        // Publicar la transacción firmada a la red de Arweave
         const response = await arweave.transactions.post(transaction);
-
-        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        console.log(`>>> Respuesta de Arweave Network: Código ${response.status}`);
 
         if (response.status === 200 || response.status === 202) {
             return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `Error Arweave: ${response.status}` });
+            return res.status(500).json({ error: `Arweave rechazó el paquete. Status: ${response.status}` });
         }
     } catch (error) {
-        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
+        console.error("Error crítico en el backend de subida:", error);
         return res.status(500).json({ error: error.message });
     }
 });
 
-// --- RUTA 2 REPARADA: CONCATENACIÓN CON DIAGONALES CORRECTAS ---
-app.get('/api/files', async (req, res) => {
+// --- RUTA 2: LISTAR ARCHIVOS POR DIRECCIÓN DINÁMICA (GRAPHQL) ---
+app.get('/api/files/:address', async (req, res) => {
     try {
-        if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
+        const { address } = req.params;
+        if (!address) return res.status(400).json({ error: 'Falta la dirección de la billetera.' });
 
         const query = {
             query: `query {
               transactions(
-                owners: ["${walletAddress}"]
+                owners: ["${address}"]
                 tags: { name: "App-Name", values: ["MiArweaveUploaderBasico"] }
                 first: 50
               ) { edges { node { id tags { name value } } } }
@@ -102,7 +82,7 @@ app.get('/api/files', async (req, res) => {
 
         const response = await arweave.api.post('/graphql', query);
         const edges = response.data.data.transactions.edges;
-
+        
         const files = edges.map(edge => {
             const tags = edge.node.tags;
             const nameTag = tags.find(t => t.name === 'File-Name');
@@ -113,37 +93,43 @@ app.get('/api/files', async (req, res) => {
                 id: txId,
                 name: nameTag ? nameTag.value : 'Archivo sin nombre',
                 type: typeTag ? typeTag.value : 'Desconocido',
-                
-                // CORRECCIÓN DEFINITIVA: Añadimos las diagonales manuales estrictas a cada enlace base
-                url: "https://arweave.net/" + txId,
-                txUrl: "https://viewblock.io/arweave/tx/" + txId
+                url: "https://arweave.net" + txId,
+                txUrl: "https://viewblock.io" + txId
             };
         });
 
         res.json({ success: true, files });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
-// --- RUTA 3: CONSULTAR BALANCE ---
-app.get('/api/balance', async (req, res) => {
+// --- RUTA 3: CONSULTAR BALANCE DE UNA DIRECCIÓN DINÁMICA ---
+app.get('/api/balance/:address', async (req, res) => {
     try {
-        if (!walletAddress) return res.status(500).json({ error: 'Dirección no lista.' });
-        const winstonBalance = await arweave.wallets.getBalance(walletAddress);
+        const { address } = req.params;
+        if (!address) return res.status(400).json({ error: 'Dirección requerida.' });
+
+        const winstonBalance = await arweave.wallets.getBalance(address);
         const arBalance = arweave.ar.winstonToAr(winstonBalance);
         res.json({ success: true, balance: arBalance });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
-// --- RUTA 4: CONSULTAR PRECIO ---
+// --- RUTA 4: CONSULTAR PRECIO ESTIMADO POR BYTES ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = parseInt(req.params.bytes);
         const winstonPrice = await arweave.transactions.getPrice(bytes);
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
         res.json({ success: true, ar: arPrice });
-    } catch (error) { res.status(500).json({ error: error.message }); }
+    } catch (error) { 
+        res.status(500).json({ error: error.message }); 
+    }
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor Raw corriendo en el puerto ${PORT}`);
+    console.log(`Servidor Unificado corriendo en el puerto ${PORT}`);
 });
