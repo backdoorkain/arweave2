@@ -8,6 +8,7 @@ const app = express();
 const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3000;
 
+// Inicializar Arweave apuntando a la Mainnet oficial
 const arweave = Arweave.init({
     host: 'arweave.net',
     port: 443,
@@ -126,21 +127,28 @@ app.get('/api/balance', async (req, res) => {
     }
 });
 
-// --- RUTA 4: CONCATENACIÓN ULTRA-SEGURA (OMITE CUALQUIER FALLO DE FORMATO) ---
+// --- RUTA 4 REMODELADA: ENGIN DE PRECIOS 100% NATIVO MEDIANTE EL SDK OFICIAL ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
-        const bytes = req.params.bytes;
-        
-        // Forzamos la URL usando suma de texto plano para que no haya riesgo de heredar llaves
-        const urlOficial = "https://arweave.net" + bytes;
-        
-        const response = await fetch(urlOficial);
-        const winstonPriceText = await response.text();
+        const bytes = parseInt(req.params.bytes);
+        if (isNaN(bytes) || bytes <= 0) {
+            return res.status(400).json({ error: 'Cantidad de bytes inválida.' });
+        }
 
-        const arPrice = arweave.ar.winstonToAr(winstonPriceText.trim());
+        console.log(`>>> Solicitando costo de red para: ${bytes} bytes de forma nativa...`);
+
+        // CERSIORAMIENTO: Usamos el método nativo del SDK que consulta directamente la blockchain de Arweave
+        const winstonPrice = await arweave.transactions.getPrice(bytes);
+        
+        // Convertimos el string masivo de Winston devuelto a formato legible de AR tokens
+        const arPrice = arweave.ar.winstonToAr(winstonPrice);
+        
+        console.log(`>>> Costo obtenido con éxito: ${winstonPrice} Winston (${arPrice} AR)`);
+
+        // Entregamos el JSON limpio estructurado que espera tu frontend
         res.json({ success: true, ar: arPrice });
     } catch (error) {
-        console.error("Error al calcular precio en backend:", error);
+        console.error("Fallo definitivo en cálculo nativo de Arweave SDK:", error);
         res.status(500).json({ error: error.message });
     }
 });
