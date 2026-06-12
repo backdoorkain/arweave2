@@ -162,8 +162,11 @@
                         uploadResult.innerText = "Creando transacción...";
 
                         const transaction = await arweave.createTransaction({ data: arrayBuffer });
-                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
                         
+                        // AGREGAMOS TAGS ESTÁNDAR DE INDEXACIÓN
+                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+                        transaction.addTag('App-Name', 'MyMinimalUploaderApp'); // Tag de rastreo seguro
+
                         uploadResult.innerText = "Esperando firma en Wander...";
                         await arweave.transactions.sign(transaction, "use_wallet");
                         
@@ -173,7 +176,9 @@
                         if (response.status === 200 || response.status === 202) {
                             uploadResult.innerHTML = `¡Éxito! Archivo subido.<br><a href="https://viewblock.io{transaction.id}" target="_blank" style="color:#10b981; text-decoration:underline;">${transaction.id}</a>`;
                             uploadResult.style.color = "#10b981";
-                            setTimeout(fetchArweaveHistory, 3000);
+                            
+                            // Guardamos inmediatamente en memoria local para que aparezca sin esperar a GraphQL
+                            saveLocalTx(transaction.id, file.type || 'application/octet-stream', (nodeData = { size: arrayBuffer.byteLength }));
                         } else {
                             uploadResult.innerText = `Rechazado: ${response.status}`;
                             uploadResult.style.color = "#ef4444";
@@ -189,14 +194,53 @@
             }
         });
 
+        // Función auxiliar para pintar cargas instantáneas antes del minado de GraphQL
+        function saveLocalTx(id, mime, dataInfo) {
+            const sizeKB = (dataInfo.size / 1024).toFixed(2);
+            historyPlaceholder.style.display = "none";
+            
+            const localItem = `
+                <div class="list-item" style="border-color: #10b981;">
+                    <div class="item-info">
+                        <span class="item-id" style="max-width:140px; color: #10b981;">${id} (Procesando...)</span>
+                        <div class="item-meta">
+                            <span class="meta-tag" style="background: #061c11; color: #34d399;">${mime}</span>
+                            <span>• ${sizeKB} KB</span>
+                        </div>
+                    </div>
+                    <div class="item-actions">
+                        <a href="https://arweave.net{id}" target="_blank" class="link-action">Data</a>
+                        <a href="https://viewblock.io{id}" target="_blank" class="link-action">Tx</a>
+                    </div>
+                </div>
+            `;
+            fileList.innerHTML = localItem + fileList.innerHTML;
+            fileList.style.display = "flex";
+        }
+
         async function fetchArweaveHistory() {
             if (!userAddress) return;
             historyPlaceholder.innerText = "Buscando cargas en GraphQL...";
             historyPlaceholder.style.display = "block";
             fileList.style.display = "none";
 
+            // Query optimizada: Filtra por dueño y ordena de la más reciente a la más antigua
             const queryGQL = {
-                query: `query { transactions(owners: ["${userAddress}"], first: 10) { edges { node { id data { size } tags { name value } } } } }`
+                query: `query { 
+                    transactions(
+                        owners: ["${userAddress}"], 
+                        first: 10,
+                        sort: HEIGHT_DESC
+                    ) { 
+                        edges { 
+                            node { 
+                                id 
+                                data { size } 
+                                tags { name value } 
+                            } 
+                        } 
+                    } 
+                }`
             };
 
             try {
@@ -209,7 +253,7 @@
                 const edges = result?.data?.transactions?.edges || [];
 
                 if (edges.length === 0) {
-                    historyPlaceholder.innerText = "No tienes transacciones previas.";
+                    historyPlaceholder.innerText = "No tienes transacciones previas en el índice de este nodo.";
                     return;
                 }
 
@@ -220,7 +264,7 @@
                     const node = edge.node;
                     const ctTag = node.tags.find(t => t.name.toLowerCase() === 'content-type');
                     const mime = ctTag ? ctTag.value : 'desconocido';
-                    const sizeKB = (node.data.size / 1024).toFixed(2);
+                    const sizeKB = node.data?.size ? (node.data.size / 1024).toFixed(2) : "0.00";
 
                     fileList.innerHTML += `
                         <div class="list-item">
@@ -240,6 +284,7 @@
                 });
                 fileList.style.display = "flex";
             } catch (err) {
+                console.error(err);
                 historyPlaceholder.innerText = "Error al mapear el historial.";
             }
         }
