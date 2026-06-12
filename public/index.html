@@ -51,7 +51,7 @@
         <!-- Bloque Principal de Operaciones -->
         <div class="grid">
             
-            <!-- Panel Izquierdo: Saldo y Calculadora Automática -->
+            <!-- Panel Izquierdo: Saldo y Calculadora Directa (Arweave Fees Engine) -->
             <div class="card">
                 <div>
                     <h2>💰 Tu Saldo On-Chain</h2>
@@ -76,6 +76,7 @@
                     </div>
 
                     <div class="balance-box" style="margin-top: 16px; background-color: #090d16; border-color: #1e293b;">
+                        <!-- Inyectamos los identificadores exactos del motor oficial para ver los datos -->
                         <div id="calcRes" class="balance-amount" style="color: #38bdf8; font-size: 1.5rem;">0.000000</div>
                         <span class="balance-label" style="color: #94a3b8;">AR ESTIMADOS</span>
                     </div>
@@ -155,34 +156,45 @@
             }
         }
 
-        // 2. Lógica de la calculadora automática por Bytes puros
-        async function calculateCost(totalBytes) {
+        // 2. Lógica de la calculadora integrada con el motor oficial que descubriste
+        function calculateCost(totalBytes) {
             if (!totalBytes || totalBytes <= 0) {
                 calcRes.innerText = "0.000000";
                 return;
             }
-            try {
-                const response = await fetch(`/api/price/${totalBytes}`);
-                const data = await response.json();
-                if (data.success) {
-                    calcRes.innerText = parseFloat(data.ar).toFixed(6);
-                }
-            } catch (err) {
-                console.error("Error al calcular tarifa:", err);
+
+            // Hacemos el fetch directo al gateway de Arweave emulando el script original
+            fetch("https://arweave.net" + totalBytes, {
+                "body": null,
+                "method": "GET",
+                "mode": "cors",
+            }).then(function(response) {
+                // Soportamos si el nodo responde texto crudo o JSON plano
+                return response.clone().json().catch(() => response.text());
+            }).then(function(data) {
+                // Si viene como JSON o texto, extraemos el valor numérico de Winston
+                let storagePriceWinston = (typeof data === 'object') ? data.winston || data : data;
+                
+                // Conversión matemática exacta a tokens AR
+                let storagePriceAR = storagePriceWinston / 1000000000000;
+                
+                // Pintar el resultado formateado en la interfaz
+                calcRes.innerText = parseFloat(storagePriceAR).toFixed(6);
+            }).catch(function(error) {
+                console.error("Error en motor oficial de cálculo:", error);
                 calcRes.innerText = "Error";
-            }
+            });
         }
 
-        // DETECCIÓN AUTOMÁTICA CORREGIDA ACCEDIENDO AL ÍNDICE [0] DEL INPUT
+        // DETECCIÓN AUTOMÁTICA CORREGIDA: Acceso estricto al índice cero [0] del arreglo de archivos
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
-                const file = e.target.files[0]; // <--- CORRECCIÓN CLAVE: Extraemos el primer archivo real
+                const file = e.target.files[0]; // <--- CORRECCIÓN TÉCNICA PRINCIPAL
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
 
-                // Formatear automáticamente el tamaño visual en la calculadora
-                const sizeInBytes = file.size; // <--- Ahora sí lee los bytes reales
+                const sizeInBytes = file.size; 
                 if (sizeInBytes < 1024) {
                     calcSize.value = sizeInBytes;
                     calcUnit.value = "B";
@@ -194,7 +206,7 @@
                     calcUnit.value = "MB";
                 }
 
-                // Ejecutar la cotización automática directa contra la blockchain
+                // Disparar el motor oficial de cálculo directo
                 calculateCost(sizeInBytes);
             }
         });
@@ -203,7 +215,7 @@
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]); // <--- CORRECCIÓN CLAVE: Pasamos el archivo indexado
+            formData.append('file', fileInput.files[0]); // <--- Enviamos el archivo indexado correctamente
 
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando y enviando transacción AR...";
@@ -269,13 +281,7 @@
             }
         }
 
-        function showMessage(text, className) {
-            statusMessage.innerText = text;
-            statusMessage.className = `msg ${className}`;
-            statusMessage.style.display = 'block';
-        }
-
-        btnRefresh.addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
+        document.getElementById('btnRefresh').addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
         window.addEventListener('DOMContentLoaded', () => { checkArweaveBalance(); loadFiles(); });
     </script>
 </body>
