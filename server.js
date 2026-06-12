@@ -15,26 +15,24 @@ const arweave = Arweave.init({
     protocol: 'https'
 });
 
-// Cargar billetera real (Soporta archivo local o Variable de Entorno para Render)
+// Cargar billetera de manera 100% segura mediante variable de entorno
 let wallet;
 let walletAddress = "";
 
 try {
     if (process.env.ARWEAVE_WALLET) {
-        // En Render leerá el JSON desde una variable de entorno
+        // Formato estándar para producción (Render) y desarrollo seguro local
         wallet = JSON.parse(process.env.ARWEAVE_WALLET);
+        
+        arweave.wallets.jwkToAddress(wallet).then(address => {
+            walletAddress = address;
+            console.log(`>>> Conectado exitosamente. Dirección: ${address}`);
+        });
     } else {
-        // En local leerá el archivo físico
-        const walletPath = path.join(__dirname, 'wallet.json');
-        wallet = JSON.parse(fs.readFileSync(walletPath, 'utf-8'));
+        console.error(">>> ERROR DE SEGURIDAD: Define la variable de entorno ARWEAVE_WALLET con el contenido de tu JSON.");
     }
-    
-    arweave.wallets.jwkToAddress(wallet).then(address => {
-        walletAddress = address;
-        console.log(`>>> Conectado exitosamente. Dirección: ${address}`);
-    });
 } catch (error) {
-    console.error(">>> ERROR: Configura tu wallet.json localmente o ARWEAVE_WALLET en producción.");
+    console.error(">>> ERROR: El formato del JSON en la variable ARWEAVE_WALLET es inválido.");
 }
 
 app.use(express.use ? express.json() : express.json()); // Middleware para JSON
