@@ -5,136 +5,143 @@ const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const upload = multer({ dest: 'uploads/' }); // Almacenamiento temporal en el servidor
+const upload = multer({ dest: 'uploads/' });
 const PORT = process.env.PORT || 3000;
 
-// Inicializar Arweave apuntando a la Mainnet
+// Inicializar Arweave apuntando a la Mainnet oficial
 const arweave = Arweave.init({
     host: 'arweave.net',
     port: 443,
     protocol: 'https'
 });
 
-// Cargar billetera de manera 100% segura mediante variable de entorno
+// Cargar billetera segura desde la Variable de Entorno de Render
 let wallet;
 let walletAddress = "";
 
 try {
     if (process.env.ARWEAVE_WALLET) {
-        // Formato estándar para producción (Render) y desarrollo seguro local
         wallet = JSON.parse(process.env.ARWEAVE_WALLET);
-        
         arweave.wallets.jwkToAddress(wallet).then(address => {
             walletAddress = address;
-            console.log(`>>> Conectado exitosamente. Dirección: ${address}`);
+            console.log(`>>> Conectado a Arweave Raw. Dirección: ${address}`);
         });
     } else {
-        console.error(">>> ERROR DE SEGURIDAD: Define la variable de entorno ARWEAVE_WALLET con el contenido de tu JSON.");
+        console.error(">>> ERROR: Configura la variable ARWEAVE_WALLET en Render.");
     }
 } catch (error) {
-    console.error(">>> ERROR: El formato del JSON en la variable ARWEAVE_WALLET es inválido.");
+    console.error(">>> ERROR: Formato de billetera inválido.");
 }
 
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(express.static(path.join(__dirname, 'public')));
 
-// --- NUEVA RUTA 1 CORREGIDA: SUBIR ARCHIVO ---
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
+// --- RUTA 1: SUBIR ARCHIVO RAW AL COSTO REAL DE RED ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
         if (!wallet) return res.status(500).json({ error: 'Billetera no configurada.' });
 
-        // Forzar la lectura explícita como un Buffer de Node.js
         const fileData = fs.readFileSync(path.resolve(req.file.path));
         const dataBuffer = Buffer.from(fileData);
         
-        // Crear la transacción envolviendo el buffer explícitamente
+        const byteSize = dataBuffer.length;
+        const priceInWinston = await arweave.transactions.getPrice(byteSize);
+
         const transaction = await arweave.createTransaction({ 
-            data: dataBuffer 
+            data: dataBuffer,
+            reward: priceInWinston
         }, wallet);
         
-        // Etiquetas optimizadas para compatibilidad nativa en Mainnet
+        // ETIQUETA UNIFICADA: Usamos la del primer proyecto para rescatar tu historial
         transaction.addTag('Content-Type', req.file.mimetype);
         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
         transaction.addTag('File-Name', req.file.originalname);
-        transaction.addTag('Data-Protocol', 'Binary');
 
-        // Firmar la transacción con tu JWK segura
         await arweave.transactions.sign(transaction, wallet);
-        
-        // Enviar al nodo de producción
         const response = await arweave.transactions.post(transaction);
 
-        // Limpieza obligatoria del almacenamiento temporal en Render
-        if (fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
+        if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
         if (response.status === 200 || response.status === 202) {
-            return res.json({ 
-                success: true, 
-                txId: transaction.id,
-                message: "Archivo enviado a Mainnet con éxito."
-            });
+            return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `Error en red Arweave: Código ${response.status}` });
+            return res.status(500).json({ error: `Error Arweave: ${response.status}` });
         }
     } catch (error) {
-        console.error("Detalle del error en consola:", error);
-        // Asegurar limpieza incluso si el proceso falla a mitad
-        if (req.file && fs.existsSync(req.file.path)) {
-            fs.unlinkSync(req.file.path);
-        }
+        if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         return res.status(500).json({ error: error.message });
     }
 });
 
-// --- LISTAR ARCHIVOS (GraphQL) ---
-// --- RUTA 3: CONSULTAR BALANCE GENERAL DE LA WALLET EN ARWEAVE ---
-app.get('/api/balance', async (req, res) => {
+// --- RUTA 2: LISTAR ARCHIVOS (GraphQL UNIFICADO) ---
+app.get('/api/files', async (req, res) => {
     try {
-        if (!walletAddress) {
-            // Reutilizamos el walletAddress que calcula tu servidor al arrancar
-            return res.status(500).json({ error: 'Dirección de billetera no lista.' });
-        }
-        // Consultar el saldo directo en la unidad mínima Winston
-        const winstonBalance = await arweave.wallets.getBalance(walletAddress);
-        // Convertirlo a un formato legible de tokens AR
-        const arBalance = arweave.ar.winstonToAr(winstonBalance);
-        
-        res.json({ success: true, balance: arBalance });
+        if (!walletAddress) return res.status(500).json({ error: 'Billetera no lista.' });
+
+        const query = {
+            query: `query {
+              transactions(
+                owners: ["${walletAddress}"]
+                tags: { name: "App-Name", values: ["MiArweaveUploaderBasico"] }
+                first: 50
+              ) {
+                edges { node { id tags { name value } } }
+              }
+            }`
+        };
+
+        const response = await arweave.api.post('/graphql', query);
+        const edges = response.data.data.transactions.edges;
+
+        const files = edges.map(edge => {
+            const tags = edge.node.tags;
+            const nameTag = tags.find(t => t.name === 'File-Name');
+            const typeTag = tags.find(t => t.name === 'Content-Type');
+            return {
+                id: edge.node.id,
+                name: nameTag ? nameTag.value : 'Archivo sin nombre',
+                type: typeTag ? typeTag.value : 'Desconocido',
+                url: `https://arweave.net{edge.node.id}`
+            };
+        });
+
+        res.json({ success: true, files });
     } catch (error) {
-        console.error("Error al consultar balance general:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
-// --- RUTA 4: CONSULTAR PRECIO OFICIAL DE LA BLOCKCHAIN POR BYTES ---
+// --- RUTA 3: CONSULTAR BALANCE REAL ON-CHAIN ---
+app.get('/api/balance', async (req, res) => {
+    try {
+        if (!walletAddress) return res.status(500).json({ error: 'Dirección no lista.' });
+        const winstonBalance = await arweave.wallets.getBalance(walletAddress);
+        const arBalance = arweave.ar.winstonToAr(winstonBalance);
+        res.json({ success: true, balance: arBalance });
+    } catch (error) {
+        res.status(500).json({ error: error.message });
+    }
+});
+
+// --- RUTA 4: CONSULTAR PRECIO DE RED (LA QUE TE FALTABA) ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = req.params.bytes;
-        if (!bytes || isNaN(bytes)) {
-            return res.status(400).json({ error: 'Cantidad de bytes inválida.' });
-        }
-        
-        // Petición directa al endpoint oficial de precios de la red principal
         const response = await fetch(`https://arweave.net{bytes}`);
         const winstonPrice = await response.text();
-        
-        // Convertir el costo de Winston a AR utilizando el conversor del SDK
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
-        
-        res.json({ 
-            success: true, 
-            winston: winstonPrice, 
-            ar: arPrice 
-        });
+        res.json({ success: true, ar: arPrice });
     } catch (error) {
-        console.error("Error al calcular precio de red:", error);
         res.status(500).json({ error: error.message });
     }
 });
 
 app.listen(PORT, () => {
-    console.log(`Servidor corriendo en http://localhost:${PORT}`);
+    console.log(`Servidor Raw corriendo en el puerto ${PORT}`);
 });
