@@ -40,7 +40,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'index.html'));
 });
 
-// --- RUTA 1: SUBIR ARCHIVO RAW ---
+// --- RUTA 1 REPARADA: SUBIR ARCHIVO CON MULTIPLICADOR DE RECOMPENSA (INCENTIVO) ---
 app.post('/api/upload', upload.single('file'), async (req, res) => {
     try {
         if (!req.file) return res.status(400).json({ error: 'No se envió ningún archivo.' });
@@ -50,11 +50,20 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         const dataBuffer = Buffer.from(fileData);
         
         const byteSize = dataBuffer.length;
-        const priceInWinston = await arweave.transactions.getPrice(byteSize);
+        
+        // 1. Obtener el precio base en Winston
+        const basePriceInWinston = await arweave.transactions.getPrice(byteSize);
+        
+        // 2. INCENTIVO DE VELOCIDAD: Multiplicamos el costo por 1.4 usando BigInt para no perder precisión
+        // Esto le da prioridad máxima ante los mineros por fracciones insignificantes de centavo
+        const boostedReward = (BigInt(basePriceInWinston) * 14n / 10n).toString();
 
+        console.log(`>>> Tamaño: ${byteSize} bytes. Recompensa base: ${basePriceInWinston}. Recompensa con incentivo: ${boostedReward}`);
+
+        // 3. Crear la transacción asignando el incentivo
         const transaction = await arweave.createTransaction({ 
             data: dataBuffer,
-            reward: priceInWinston
+            reward: boostedReward // <-- EVITA QUE LA TRANSACCIÓN SE QUEDE CONGELADA
         }, wallet);
         
         transaction.addTag('Content-Type', req.file.mimetype);
@@ -62,16 +71,22 @@ app.post('/api/upload', upload.single('file'), async (req, res) => {
         transaction.addTag('File-Name', req.file.originalname);
 
         await arweave.transactions.sign(transaction, wallet);
+        
+        // 4. Enviar los datos al gateway de Mainnet
         const response = await arweave.transactions.post(transaction);
 
         if (fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
 
+        console.log(`>>> Respuesta del nodo validador de Arweave: Código ${response.status}`);
+
+        // Los nodos aceptan de inmediato la transacción con códigos 200 o 202
         if (response.status === 200 || response.status === 202) {
             return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `Error Arweave: ${response.status}` });
+            return res.status(500).json({ error: `Arweave rechazó la firma con código: ${response.status}` });
         }
     } catch (error) {
+        console.error("Error crítico durante el envío:", error);
         if (req.file && fs.existsSync(req.file.path)) fs.unlinkSync(req.file.path);
         return res.status(500).json({ error: error.message });
     }
@@ -127,28 +142,17 @@ app.get('/api/balance', async (req, res) => {
     }
 });
 
-// --- RUTA 4 REMODELADA: ENGIN DE PRECIOS 100% NATIVO MEDIANTE EL SDK OFICIAL ---
+// --- RUTA 4: CONSULTAR PRECIO DE RED NATIVO ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = parseInt(req.params.bytes);
-        if (isNaN(bytes) || bytes <= 0) {
-            return res.status(400).json({ error: 'Cantidad de bytes inválida.' });
-        }
+        if (isNaN(bytes) || bytes <= 0) return res.status(400).json({ error: 'Bytes inválidos.' });
 
-        console.log(`>>> Solicitando costo de red para: ${bytes} bytes de forma nativa...`);
-
-        // CERSIORAMIENTO: Usamos el método nativo del SDK que consulta directamente la blockchain de Arweave
         const winstonPrice = await arweave.transactions.getPrice(bytes);
-        
-        // Convertimos el string masivo de Winston devuelto a formato legible de AR tokens
         const arPrice = arweave.ar.winstonToAr(winstonPrice);
         
-        console.log(`>>> Costo obtenido con éxito: ${winstonPrice} Winston (${arPrice} AR)`);
-
-        // Entregamos el JSON limpio estructurado que espera tu frontend
         res.json({ success: true, ar: arPrice });
     } catch (error) {
-        console.error("Fallo definitivo en cálculo nativo de Arweave SDK:", error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -156,3 +160,4 @@ app.get('/api/price/:bytes', async (req, res) => {
 app.listen(PORT, () => {
     console.log(`Servidor Raw corriendo en el puerto ${PORT}`);
 });
+
