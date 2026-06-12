@@ -236,7 +236,7 @@
         // 4. DETECTAR TAMAÑO Y CONFIGURAR CALCULADORA AUTOMÁTICA
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
-                const file = e.target.files[0]; // CORREGIDO: Acceso estricto al índice cero
+                const file = e.target.files[0]; // Extraemos el primer archivo real indexado
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
@@ -257,7 +257,7 @@
             }
         });
 
-        // 5. SUBIDA ASÍNCRONA USANDO LA EXTENSIÓN WANDER
+        // 5. SUBIDA ASÍNCRONA CORREGIDA MANDANDO LA INSTRUCCIÓN DE USO DE WALLET
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!userAddress) {
@@ -266,7 +266,7 @@
             }
 
             if (fileInput.files.length === 0) return;
-            const file = fileInput.files[0]; // CORREGIDO: Acceso estricto al índice cero
+            const file = fileInput.files[0]; // Archivo individual crudo indexado
             
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Abriendo Wander para firmar...";
@@ -287,7 +287,7 @@
                         const baseWinston = arweave.ar.arToWinston(priceData.ar);
                         const boostedReward = (BigInt(baseWinston) * 14n / 10n).toString();
 
-                        // Crear la estructura de la transacción en memoria sin clave privada
+                        // Crear objeto de transacción básico
                         const transaction = await arweave.createTransaction({
                             data: dataBuffer,
                             reward: boostedReward
@@ -297,13 +297,13 @@
                         transaction.addTag('App-Name', 'MiArweaveUploaderBasico');
                         transaction.addTag('File-Name', file.name);
 
-                        // DELEGACIÓN ASÍNCRONA: Wander se encarga de firmar en su propia ventana externa
-                        await window.arweaveWallet.sign(transaction);
+                        // SINTAXIS MODERNA REPARADA: Le dice al SDK de Arweave que use la extensión Wander de forma nativa
+                        await arweave.transactions.sign(transaction, "use_wallet");
 
                         showMessage('Transacción firmada con Wander. Transmitiendo bytes seguros...', 'msg-blue');
                         btnSubmit.innerText = "Transmitiendo a Render...";
 
-                        // Enviar transacción ya firmada al backend puente
+                        // Transmitir la estructura firmada al backend puente
                         const response = await fetch('/api/upload', {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json' },
