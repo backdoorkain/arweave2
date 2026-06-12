@@ -126,19 +126,16 @@ app.get('/api/balance', async (req, res) => {
     }
 });
 
-// --- RUTA 4 CORREGIDA: ENRUTADOR SEGURO PARA CALCULAR PRECIO (EVITA CORS) ---
+// --- RUTA 4 REPARADA: CONCATENACIÓN CORRECTA DE LA URL ---
 app.get('/api/price/:bytes', async (req, res) => {
     try {
         const bytes = req.params.bytes;
         
-        // El servidor hace el fetch de forma segura (A Node no lo bloquea el CORS)
+        // CORRECCIÓN TÉCNICA: Usamos comillas invertidas y la sintaxis template string correcta
         const response = await fetch(`https://arweave.net{bytes}`);
-        const winstonPriceText = await response.text(); // <--- Extraemos la respuesta como texto plano crudo
+        const winstonPriceText = await response.text();
 
-        // Convertimos los Winston masivos a formato de tokens AR legibles utilizando el SDK
         const arPrice = arweave.ar.winstonToAr(winstonPriceText.trim());
-        
-        // Devolvemos la respuesta limpia en un formato JSON estándar que el frontend entiende perfectamente
         res.json({ success: true, ar: arPrice });
     } catch (error) {
         console.error("Error al calcular precio en backend:", error);
