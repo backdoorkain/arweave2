@@ -32,7 +32,7 @@
     </div>
 
     <script>
-        // CORRECCIÓN 1: Instanciación correcta para el bundle web de unpkg
+        // 1. Inicializar Arweave para navegadores mediante la ventana global
         const arweave = window.Arweave.init({
             host: 'arweave.net',
             port: 443,
@@ -41,7 +41,7 @@
 
         let userAddress = "";
 
-        // Elementos del DOM
+        // Captura e inyección segura de elementos del DOM
         const btnConnect = document.getElementById('btnConnect');
         const statusLabel = document.getElementById('status');
         const txtAddress = document.getElementById('txtAddress');
@@ -49,23 +49,28 @@
         const btnSubmit = document.getElementById('btnSubmit');
         const uploadResult = document.getElementById('uploadResult');
 
-        // --- EVENTO 1: CONECTAR WANDER ---
+        // --- EVENTO 1: CONECTAR BILLETERA WANDER ---
         btnConnect.addEventListener('click', async () => {
             if (!window.arweaveWallet) {
-                alert("Por favor instala la extensión Wander.");
+                alert("Por favor instala la extensión de la billetera Wander (ArConnect).");
                 return;
             }
             try {
                 statusLabel.innerText = "Conectando...";
+                
+                // Permisos oficiales en mayúsculas aprobados por Wander
                 await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
+                
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 txtAddress.innerText = userAddress;
                 statusLabel.innerText = "Conectado";
                 statusLabel.style.color = "green";
                 
+                // Desbloqueamos los controles físicos
                 fileInput.disabled = false;
                 btnSubmit.disabled = false;
+                uploadResult.innerText = "";
             } catch (err) {
                 console.error("Error al conectar:", err);
                 statusLabel.innerText = "Error al conectar";
@@ -73,61 +78,65 @@
             }
         });
 
-        // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO DIRECTO A LA PERMAWEB ---
+        // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO DIRECTO A ARWEAVE ---
         btnSubmit.addEventListener('click', async () => {
             const files = fileInput.files;
-            if (files.length === 0) {
+            
+            // CORRECCIÓN CRÍTICA: Validación estricta del array de selección
+            if (!files || files.length === 0) {
                 alert("Por favor, selecciona un archivo primero.");
                 return;
             }
             
+            // Extraer el archivo plano legítimo
             const file = files[0]; 
-            uploadResult.innerText = "Procesando archivo...";
+            uploadResult.innerText = "Leyendo archivo en memoria...";
             uploadResult.style.color = "blue";
             
             try {
                 const reader = new FileReader();
+                
+                // Leer el archivo como ArrayBuffer nativo
                 reader.readAsArrayBuffer(file);
                 
                 reader.onload = async (e) => {
-                    const arrayBuffer = e.target.result;
-                    uploadResult.innerText = "Creando transacción en Arweave...";
-                    
-                    // 1. Instanciamos la transacción con el binario real directo del archivo
-                    const transaction = await arweave.createTransaction({
-                        data: arrayBuffer 
-                    });
+                    try {
+                        const arrayBuffer = e.target.result;
+                        uploadResult.innerText = "Creando transacción oficial...";
 
-                    // 2. Insertamos la etiqueta de formato
-                    transaction.addTag('Content-Type', file.type || 'application/octet-stream');
-                    
-                    uploadResult.innerText = "Esperando aprobación en el pop-up de Wander...";
-                    
-                    // 3. Wander firma los datos reales y calcula la tarifa exacta de red
-                    await arweave.transactions.sign(transaction, "use_wallet");
-                    
-                    uploadResult.innerText = "Transmitiendo archivo directamente a la Permaweb...";
+                        // 1. Instanciamos la transacción inyectando los bytes reales para calcular costos exactos
+                        const transaction = await arweave.createTransaction({
+                            data: arrayBuffer 
+                        });
 
-                    // 4. CORRECCIÓN CLAVE: Enviamos el paquete firmado directo a Arweave desde el navegador
-                    const response = await arweave.transactions.post(transaction);
-                    console.log(">>> Código de respuesta de Arweave:", response.status);
+                        // 2. Insertamos la etiqueta criptográfica del archivo
+                        transaction.addTag('Content-Type', file.type || 'application/octet-stream');
+                        
+                        uploadResult.innerText = "Esperando aprobación en el pop-up de Wander...";
 
-                    // 5. Los códigos 200 (OK) o 202 (Aceptado para minar) significan éxito
-                    if (response.status === 200 || response.status === 202) {
-                        uploadResult.innerHTML = `¡Éxito total! Archivo subido. Tx ID: <a href="https://viewblock.io{transaction.id}" target="_blank">${transaction.id}</a>`;
-                        uploadResult.style.color = "green";
-                    } else {
-                        uploadResult.innerText = `La red Arweave rechazó el archivo. Código: ${response.status}`;
+                        // 3. Invocar la firma segura (Wander calcula AR en base a data de forma nativa)
+                        await arweave.transactions.sign(transaction, "use_wallet");
+                        
+                        uploadResult.innerText = "Transmitiendo datos directo a la Permaweb...";
+
+                        // 4. Publicar la transacción firmada e íntegra directamente desde el cliente hacia los nodos
+                        const response = await arweave.transactions.post(transaction);
+                        console.log(">>> Estatus recibido de la red Arweave:", response.status);
+
+                        // 5. Los códigos 200 y 202 significan éxito en el protocolo descentralizado
+                        if (response.status === 200 || response.status === 202) {
+                            uploadResult.innerHTML = `¡Éxito absoluto! Archivo subido.<br>ID: <a href="https://viewblock.io{transaction.id}" target="_blank" style="color: green; font-weight: bold;">${transaction.id}</a>`;
+                            uploadResult.style.color = "green";
+                        } else {
+                            uploadResult.innerText = `La red Arweave rechazó el paquete. Código: ${response.status}`;
+                            uploadResult.style.color = "red";
+                        }
+                    } catch (innerErr) {
+                        console.error("Error dentro del cargador del archivo:", innerErr);
+                        uploadResult.innerText = "Error en firma/envío: " + innerErr.message;
                         uploadResult.style.color = "red";
                     }
                 };
-                
-            } catch (err) {
-                console.error("Error en el proceso de subida:", err);
-                uploadResult.innerText = "Error en el proceso: " + err.message;
-                uploadResult.style.color = "red";
-            }
-        });
                 
             } catch (err) {
                 console.error("Error en el proceso de subida:", err);
