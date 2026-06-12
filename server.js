@@ -38,7 +38,7 @@ app.get('/', (req, res) => {
 // El resto de recursos se sirven de forma estática normal
 app.use(express.static(path.join(__dirname, 'public')));
 
-// --- RUTA 1 CORREGIDA EN SERVER.JS ---
+// --- RUTA CORREGIDA EN SERVER.JS ---
 app.post('/api/upload', async (req, res) => {
     try {
         const { transactionData, fileBufferBase64 } = req.body;
@@ -46,26 +46,28 @@ app.post('/api/upload', async (req, res) => {
             return res.status(400).json({ error: 'Faltan datos de la transacción o el archivo.' });
         }
 
-        // Reconstrucción íntegra desde el JSON estructurado del cliente
+        // 1. Reconstruir el objeto de la transacción original desde el JSON del cliente
         const transaction = arweave.transactions.fromRaw(transactionData);
         
-        // Adjuntar el archivo real en formato Buffer binario
+        // 2. Convertir el Base64 recibido en un Buffer de Node.js
         const fileBuffer = Buffer.from(fileBufferBase64, 'base64');
-        transaction.set('data', fileBuffer);
-
-        console.log(`>>> Ensamblando binario: ${fileBuffer.length} bytes. ID: ${transaction.id}`);
         
-        // Transmitir a los nodos de la red Arweave
+        // CORRECCIÓN CRÍTICA: Asignación directa mediante la propiedad .data
+        transaction.data = fileBuffer;
+
+        console.log(`>>> Ensamblado binario completo: ${fileBuffer.length} bytes. ID: ${transaction.id}`);
+        
+        // 3. Transmitir la transacción firmada y ensamblada a los nodos de Arweave
         const response = await arweave.transactions.post(transaction);
         console.log(`>>> Respuesta de Arweave Network: Código ${response.status}`);
 
         if (response.status === 200 || response.status === 202) {
             return res.json({ success: true, txId: transaction.id });
         } else {
-            return res.status(500).json({ error: `Arweave rechazó el paquete: ${response.status}` });
+            return res.status(500).json({ error: `Arweave rechazó el paquete. Status: ${response.status}` });
         }
     } catch (error) {
-        console.error("Error crítico en servidor:", error);
+        console.error("Error crítico en el backend:", error);
         return res.status(500).json({ error: error.message });
     }
 });
