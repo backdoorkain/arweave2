@@ -263,7 +263,7 @@
 
         let userAddress = "";
 
-        // 1. CONECTAR EXTENSIÓN WANDER (ARCONNECT)
+        // 1. CONECTAR EXTENSIÓN WANDER (ARCONNECT) CON PERMISOS COMPLETOS
         btnConnect.addEventListener('click', async (e) => {
             e.preventDefault();
             
@@ -275,7 +275,8 @@
 
             walletLabel.innerText = "Conectando...";
             try {
-                await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
+                // CORRECCIÓN CLAVE: Inyectamos "SIGN_DATA" dentro del arreglo obligatorio de peticiones
+                await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION", "SIGN_DATA"]);
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 walletLabel.innerText = "Wander Conectado";
@@ -328,6 +329,7 @@
                 console.error("Error calculando tarifa:", err);
             }
         }
+        
         // 4. DETECTAR TAMAÑO USANDO ÍNDICE INDIVIDUAL CERO
         fileInput.addEventListener('change', (e) => {
             if (e.target.files.length > 0) {
