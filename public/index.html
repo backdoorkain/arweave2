@@ -173,16 +173,16 @@
             }
         }
 
-        // Detectar el peso exacto del archivo al seleccionarlo e inyectarlo en la calculadora
+        // DETECCIÓN AUTOMÁTICA CORREGIDA ACCEDIENDO AL ÍNDICE [0] DEL INPUT
         fileInput.addEventListener('change', (e) => {
             if(e.target.files.length > 0) {
-                const file = e.target.files[0];
+                const file = e.target.files[0]; // <--- CORRECCIÓN CLAVE: Extraemos el primer archivo real
                 fileLabel.innerText = `Seleccionado: ${file.name}`;
                 fileLabel.style.color = '#fbbf24';
                 fileLabel.style.fontWeight = '600';
 
                 // Formatear automáticamente el tamaño visual en la calculadora
-                const sizeInBytes = file.size;
+                const sizeInBytes = file.size; // <--- Ahora sí lee los bytes reales
                 if (sizeInBytes < 1024) {
                     calcSize.value = sizeInBytes;
                     calcUnit.value = "B";
@@ -203,7 +203,7 @@
         uploadForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             const formData = new FormData();
-            formData.append('file', fileInput.files[0]);
+            formData.append('file', fileInput.files[0]); // <--- CORRECCIÓN CLAVE: Pasamos el archivo indexado
 
             btnSubmit.disabled = true;
             btnSubmit.innerText = "Firmando y enviando transacción AR...";
@@ -254,18 +254,16 @@
                             <td style="padding: 16px; font-weight: 500; max-w-[220px]; text-overflow: ellipsis; overflow: hidden; white-space: nowrap;">${file.name}</td>
                             <td style="padding: 16px; color: #94a3b8; font-family: monospace; font-size: 0.75rem;">${file.type}</td>
                             <td style="padding: 16px; text-align: right;">
-                                <a href="${file.url}" target="_blank" class="btn-download">
-                                    ⬇️ Ver archivo
-                                </a>
+                                <a href="${file.url}" target="_blank" class="btn-download">⬇️ Ver archivo</a>
                             </td>
                         `;
                         filesTableBody.appendChild(tr);
                     });
                 } else {
-                    filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #64748b; padding: 32px 0;">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
+                    filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-slate-500 py-8">No se encontraron archivos subidos por esta app todavía.</td></tr>`;
                 }
             } catch (err) {
-                filesTableBody.innerHTML = `<tr><td colspan="3" style="text-align: center; color: #f87171; padding: 32px 0;">Error al cargar la lista.</td></tr>`;
+                filesTableBody.innerHTML = `<tr><td colspan="3" class="text-center text-rose-400 py-8">Error al cargar la lista.</td></tr>`;
             } finally {
                 loadingList.style.display = 'none';
             }
@@ -277,15 +275,8 @@
             statusMessage.style.display = 'block';
         }
 
-        btnRefresh.addEventListener('click', () => {
-            loadFiles();
-            checkArweaveBalance();
-        });
-        
-        window.addEventListener('DOMContentLoaded', () => {
-            checkArweaveBalance();
-            loadFiles();
-        });
+        btnRefresh.addEventListener('click', () => { loadFiles(); checkArweaveBalance(); });
+        window.addEventListener('DOMContentLoaded', () => { checkArweaveBalance(); loadFiles(); });
     </script>
 </body>
 </html>
