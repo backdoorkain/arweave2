@@ -4,83 +4,103 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Arweave Permaweb Uploader</title>
-    <!-- Tailwind CSS para diseño moderno -->
-    <script src="https://jsdelivr.net"></script>
     <!-- SDK oficial de Arweave para navegadores -->
     <script src="https://unpkg.com"></script>
-</head>
-<body class="bg-[#0b0f19] text-gray-200 min-h-screen flex flex-col items-center py-10 px-4 antialiased selection:bg-teal-500 selection:text-slate-900">
-
-    <div class="w-full max-w-2xl bg-[#141b2d] border border-slate-800 rounded-2xl shadow-2xl p-6 md:p-8 space-y-8">
+    
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        body { background: #0b0f19; color: #e2e8f0; display: flex; flex-direction: column; align-items: center; padding: 40px 20px; min-height: 100vh; }
         
-        <!-- Encabezado Principal -->
-        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-800 pb-6">
+        .container { width: 100%; max-width: 550px; background: #141b2d; border: 1px solid #1e293b; border-radius: 16px; padding: 25px; box-shadow: 0 20px 25px -5px rgba(0,0,0,0.5); }
+        
+        .header { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #1e293b; padding-bottom: 15px; margin-bottom: 20px; }
+        .header h1 { font-size: 20px; font-weight: 700; background: linear-gradient(to right, #2dd4bf, #34d399); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        .header p { font-size: 12px; color: #94a3b8; margin-top: 2px; }
+        
+        .status-container { display: flex; align-items: center; gap: 6px; }
+        .badge { width: 8px; height: 8px; border-radius: 4px; background: #ef4444; }
+        .badge.active { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .status-text { font-size: 11px; font-weight: 600; text-transform: uppercase; color: #94a3b8; }
+        .status-text.active { color: #10b981; }
+        .section { margin-bottom: 20px; }
+        .section-title { font-size: 14px; font-weight: 600; color: #cbd5e1; margin-bottom: 10px; display: flex; justify-content: space-between; align-items: center; }
+        
+        .btn { padding: 9px 16px; border-radius: 8px; border: none; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.2s; }
+        .btn-primary { background: linear-gradient(to right, #14b8a6, #10b981); color: #0f172a; }
+        .btn-primary:hover { opacity: 0.9; transform: translateY(-1px); }
+        .btn-primary:disabled { background: #1e293b; color: #64748b; cursor: not-allowed; transform: none; opacity: 0.5; }
+        
+        .address-box { background: #1e293b; border: 1px solid rgba(255,255,255,0.03); border-radius: 8px; padding: 10px; margin-top: 10px; display: none; }
+        .address-label { font-size: 10px; color: #14b8a6; text-transform: uppercase; font-weight: 600; display: block; margin-bottom: 2px; }
+        .address-val { font-family: monospace; font-size: 12px; color: #cbd5e1; word-break: break-all; }
+        
+        .dropzone { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 110px; border: 2px dashed #334155; border-radius: 10px; cursor: pointer; background: rgba(11,15,25,0.3); transition: all 0.2s; padding: 10px; }
+        .dropzone:hover { border-color: #14b8a6; background: rgba(11,15,25,0.6); }
+        .dropzone svg { width: 28px; height: 28px; margin-bottom: 6px; fill: #64748b; }
+        .dropzone:hover svg { fill: #14b8a6; }
+        .dropzone p { font-size: 12px; color: #94a3b8; }
+        .file-name { font-size: 11px; color: #14b8a6; font-family: monospace; margin-top: 4px; font-weight: 600; }
+        
+        .result-text { font-size: 12px; font-weight: 600; text-align: center; margin-top: 10px; min-height: 18px; }
+        .list-container { display: none; flex-direction: column; gap: 8px; max-height: 200px; overflow-y: auto; margin-top: 10px; }
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 10px; background: rgba(26,35,51,0.5); border: 1px solid #1e293b; border-radius: 8px; }
+        .item-info { display: flex; flex-direction: column; min-width: 0; padding-right: 8px; }
+        .item-id { font-family: monospace; font-size: 11px; color: #94a3b8; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .item-meta { display: flex; gap: 6px; align-items: center; font-size: 11px; color: #475569; margin-top: 2px; }
+        .meta-tag { background: #1e293b; color: #94a3b8; padding: 0px 4px; border-radius: 3px; font-family: monospace; font-size: 10px; }
+        .link-action { font-size: 11px; font-weight: 600; color: #14b8a6; text-decoration: none; padding: 3px 6px; background: #0b0f19; border: 1px solid #1e293b; border-radius: 5px; }
+        .link-action:hover { border-color: rgba(20,184,166,0.3); color: #34d399; }
+        .placeholder-text { font-size: 12px; color: #475569; font-style: italic; text-align: center; padding: 15px; background: rgba(11,15,25,0.1); border-radius: 8px; border: 1px solid rgba(30,41,59,0.2); }
+        .btn-refresh { font-size: 11px; color: #14b8a6; background: none; border: none; cursor: pointer; display: none; font-weight: 600; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
             <div>
-                <h1 class="text-2xl font-bold bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent">Permaweb Uploader</h1>
-                <p class="text-sm text-gray-400 mt-1">Almacenamiento perpetuo y descentralizado</p>
+                <h1>Permaweb Uploader</h1>
+                <p>Almacenamiento perpetuo y descentralizado</p>
             </div>
-            <div class="flex items-center gap-2 self-start sm:self-center">
-                <span class="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse" id="statusIndicator"></span>
-                <span class="text-xs font-semibold uppercase tracking-wider text-gray-400" id="status">Desconectado</span>
-            </div>
-        </div>
-
-        <!-- SECCIÓN 1: Control de Billetera -->
-        <div class="space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <h2 class="text-lg font-semibold text-slate-300">1. Identidad Web3</h2>
-                <button id="btnConnect" class="px-5 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/10 transition-all duration-200 cursor-pointer active:scale-[0.98]">
-                    Conectar Wander
-                </button>
-            </div>
-            <div id="addressBox" class="hidden p-4 bg-[#1f293d] border border-slate-700/50 rounded-xl space-y-1">
-                <span class="text-xs font-medium text-teal-400 block uppercase tracking-wider">Dirección de Billetera</span>
-                <span id="txtAddress" class="text-sm font-mono text-gray-300 break-all select-all">Ninguna</span>
-            </div>
-        </div>
-        <!-- SECCIÓN 2: Panel de Carga -->
-        <div class="space-y-4 pt-4 border-t border-slate-800/60">
-            <h2 class="text-lg font-semibold text-slate-300">2. Carga de Archivo</h2>
-            <div class="space-y-4">
-                <label class="flex flex-col items-center justify-center w-full h-32 border-2 border-slate-700 border-dashed rounded-xl cursor-pointer bg-[#0b0f19]/40 hover:bg-[#0b0f19]/80 hover:border-teal-500/50 transition-all group overflow-hidden">
-                    <div class="flex flex-col items-center justify-center pt-5 pb-6 px-4 text-center">
-                        <svg class="w-8 h-8 mb-2 text-slate-500 group-hover:text-teal-400 transition-colors" aria-hidden="true" xmlns="http://w3.org" fill="none" viewBox="0 0 20 16"><path stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 13h3a3 3 0 0 0 0-6h-.025A5.56 5.56 0 0 0 16 6.5 5.5 5.5 0 0 0 5.207 5.021C5.137 5.017 5.071 5 5 5a4 4 0 0 0 0 8h2.167M10 15V6m0 0L8 8m2-2 2 2"/></svg>
-                        <p class="text-sm text-gray-400"><span class="font-semibold text-teal-400">Haz clic aquí</span> o arrastra un archivo</p>
-                        <p id="fileNameDisplay" class="text-xs text-slate-500 mt-1 max-w-xs truncate font-mono">Ningún archivo seleccionado</p>
-                    </div>
-                    <input type="file" id="fileInput" class="hidden" disabled />
-                </label>
-
-                <button id="btnSubmit" disabled class="w-full py-3.5 bg-slate-800 text-slate-500 font-bold rounded-xl transition-all duration-200 opacity-60 cursor-not-allowed">
-                    Firmar y Subir Archivo
-                </button>
-                <p id="uploadResult" class="text-sm font-medium text-center min-h-[20px]"></p>
+            <div class="status-container">
+                <span class="badge" id="statusIndicator"></span>
+                <span class="status-text" id="status">Desconectado</span>
             </div>
         </div>
 
-        <!-- SECCIÓN 3: Historial GraphQL -->
-        <div class="space-y-4 pt-6 border-t border-slate-800/60">
-            <div class="flex items-center justify-between">
-                <h2 class="text-lg font-semibold text-slate-300">3. Historial en la Permaweb (GraphQL)</h2>
-                <button id="btnRefresh" class="text-xs text-teal-400 hover:text-teal-300 font-medium cursor-pointer transition-colors hidden">Actualizar Lista</button>
+        <div class="section">
+            <div class="section-title">
+                <span>1. Identidad Web3</span>
+                <button id="btnConnect" class="btn btn-primary">Conectar Wander</button>
             </div>
-            <div id="historyPlaceholder" class="text-sm text-slate-500 italic text-center py-6 bg-[#0b0f19]/20 rounded-xl border border-slate-800/40">
-                Conecta tu billetera para consultar tus cargas previas desde la red descentralizada.
-            </div>
-            <div id="fileList" class="hidden space-y-3 max-h-64 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-slate-700">
-                <!-- Se inyecta dinámicamente -->
+            <div id="addressBox" class="address-box">
+                <span class="address-label">Dirección de Billetera</span>
+                <span id="txtAddress" class="address-val">Ninguna</span>
             </div>
         </div>
 
+        <div class="section" style="border-top: 1px solid #1e293b; padding-top: 15px;">
+            <div class="section-title">2. Carga de Archivo</div>
+            <label class="dropzone">
+                <svg viewBox="0 0 24 24" xmlns="http://w3.org"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM14 13v4h-4v-4H7l5-5 5 5h-3z"/></svg>
+                <p>Haz clic aquí para seleccionar un archivo</p>
+                <p id="fileNameDisplay" class="file-name"></p>
+                <input type="file" id="fileInput" style="display: none;" disabled />
+            </label>
+            <button id="btnSubmit" class="btn btn-primary" style="width: 100%; margin-top: 12px;" disabled>Firmar y Subir Archivo</button>
+            <p id="uploadResult" class="result-text"></p>
+        </div>
+
+        <div class="section" style="border-top: 1px solid #1e293b; padding-top: 15px; margin-bottom: 0;">
+            <div class="section-title">
+                <span>3. Historial en la Permaweb (GraphQL)</span>
+                <button id="btnRefresh" class="btn-refresh">Actualizar</button>
+            </div>
+            <div id="historyPlaceholder" class="placeholder-text">Conecta tu billetera para consultar tus cargas previas.</div>
+            <div id="fileList" class="list-container"></div>
+        </div>
     </div>
-
     <script>
-        const arweave = window.Arweave.init({
-            host: 'arweave.net',
-            port: 443,
-            protocol: 'https'
-        });
-
+        const arweave = window.Arweave.init({ host: 'arweave.net', port: 443, protocol: 'https' });
         let userAddress = "";
 
         const btnConnect = document.getElementById('btnConnect');
@@ -98,120 +118,85 @@
 
         fileInput.addEventListener('change', (e) => {
             const files = e.target.files;
-            if (files && files.length > 0) {
-                fileNameDisplay.innerText = files[0].name;
-                fileNameDisplay.classList.remove('text-slate-500');
-                fileNameDisplay.classList.add('text-teal-400', 'font-semibold');
-            } else {
-                fileNameDisplay.innerText = "Ningún archivo seleccionado";
-            }
+            fileNameDisplay.innerText = (files && files.length > 0) ? files[0].name : "";
         });
-        // --- EVENTO 1: CONECTAR BILLETERA WANDER ---
+
         btnConnect.addEventListener('click', async () => {
-            if (!window.arweaveWallet) {
-                alert("Por favor instala la extensión de la billetera Wander (ArConnect).");
-                return;
-            }
+            if (!window.arweaveWallet) return alert("Instala la extensión Wander.");
             try {
                 statusLabel.innerText = "Conectando...";
                 await window.arweaveWallet.connect(["ACCESS_ADDRESS", "SIGN_TRANSACTION"]);
                 userAddress = await window.arweaveWallet.getActiveAddress();
                 
                 txtAddress.innerText = userAddress;
-                addressBox.classList.remove('hidden');
+                addressBox.style.display = "block";
                 statusLabel.innerText = "Conectado";
-                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-emerald-400 shadow-md shadow-emerald-400/50";
-                statusLabel.className = "text-xs font-semibold uppercase tracking-wider text-emerald-400";
+                statusLabel.classList.add('active');
+                statusIndicator.classList.add('active');
                 
                 fileInput.disabled = false;
                 btnSubmit.disabled = false;
-                btnSubmit.className = "w-full py-3.5 bg-gradient-to-r from-teal-500 to-emerald-500 hover:from-teal-600 hover:to-emerald-600 text-slate-950 font-bold rounded-xl shadow-lg shadow-teal-500/10 transition-all duration-200 cursor-pointer active:scale-[0.99]";
-                
                 btnConnect.innerText = "Desconectar";
-                btnRefresh.classList.remove('hidden');
-
+                btnRefresh.style.display = "inline-block";
                 fetchArweaveHistory();
             } catch (err) {
-                console.error("Error al conectar:", err);
+                console.error(err);
                 statusLabel.innerText = "Error";
-                statusIndicator.className = "w-2.5 h-2.5 rounded-full bg-red-500";
-                statusLabel.className = "text-xs font-semibold uppercase tracking-wider text-red-400";
             }
         });
 
-        // --- EVENTO 2: FIRMAR Y SUBIR ARCHIVO DIRECTO A ARWEAVE ---
         btnSubmit.addEventListener('click', async () => {
             const files = fileInput.files;
-            if (!files || files.length === 0) {
-                alert("Por favor, selecciona un archivo primero.");
-                return;
-            }
+            if (!files || files.length === 0) return alert("Selecciona un archivo.");
             
-            const file = files[0]; 
-            uploadResult.innerText = "Leyendo archivo en memoria...";
-            uploadResult.className = "text-sm font-medium text-center text-teal-400 animate-pulse";
+            const file = files[0];
+            uploadResult.innerText = "Leyendo archivo...";
+            uploadResult.style.color = "#14b8a6";
             
             try {
                 const reader = new FileReader();
                 reader.readAsArrayBuffer(file);
-                
                 reader.onload = async (e) => {
                     try {
                         const arrayBuffer = e.target.result;
-                        uploadResult.innerText = "Creando transacción oficial...";
+                        uploadResult.innerText = "Creando transacción...";
 
                         const transaction = await arweave.createTransaction({ data: arrayBuffer });
                         transaction.addTag('Content-Type', file.type || 'application/octet-stream');
                         
-                        uploadResult.innerText = "Esperando aprobación en Wander...";
+                        uploadResult.innerText = "Esperando firma en Wander...";
                         await arweave.transactions.sign(transaction, "use_wallet");
                         
-                        uploadResult.innerText = "Transmitiendo datos a la Permaweb...";
+                        uploadResult.innerText = "Transmitiendo datos...";
                         const response = await arweave.transactions.post(transaction);
 
                         if (response.status === 200 || response.status === 202) {
-                            uploadResult.innerHTML = `¡Éxito absoluto! Archivo subido.<br><a href="https://viewblock.io{transaction.id}" target="_blank" class="text-emerald-400 underline font-bold mt-1 inline-block hover:text-emerald-300">${transaction.id}</a>`;
-                            uploadResult.className = "text-sm font-medium text-center text-emerald-400";
-                            
+                            uploadResult.innerHTML = `¡Éxito! Archivo subido.<br><a href="https://viewblock.io{transaction.id}" target="_blank" style="color:#10b981; text-decoration:underline;">${transaction.id}</a>`;
+                            uploadResult.style.color = "#10b981";
                             setTimeout(fetchArweaveHistory, 3000);
                         } else {
-                            uploadResult.innerText = `La red Arweave rechazó el paquete. Código: ${response.status}`;
-                            uploadResult.className = "text-sm font-medium text-center text-red-400";
+                            uploadResult.innerText = `Rechazado: ${response.status}`;
+                            uploadResult.style.color = "#ef4444";
                         }
                     } catch (innerErr) {
-                        console.error(innerErr);
-                        uploadResult.innerText = "Error en firma: " + innerErr.message;
-                        uploadResult.className = "text-sm font-medium text-center text-red-400";
+                        uploadResult.innerText = "Error: " + innerErr.message;
+                        uploadResult.style.color = "#ef4444";
                     }
                 };
             } catch (err) {
-                console.error(err);
                 uploadResult.innerText = "Error: " + err.message;
-                uploadResult.className = "text-sm font-medium text-center text-red-400";
+                uploadResult.style.color = "#ef4444";
             }
         });
 
-        // --- SISTEMA INTERNO: CONSULTA GRAPHQL DE HISTORIAL ---
         async function fetchArweaveHistory() {
             if (!userAddress) return;
-            
-            historyPlaceholder.innerText = "Consultando índice GraphQL de Arweave...";
-            historyPlaceholder.classList.remove('hidden');
-            fileList.classList.add('hidden');
+            historyPlaceholder.innerText = "Buscando cargas en GraphQL...";
+            historyPlaceholder.style.display = "block";
+            fileList.style.display = "none";
 
             const queryGQL = {
-                query: `
-                query {
-                    transactions(owners: ["${userAddress}"], first: 10) {
-                        edges {
-                            node {
-                                id
-                                data { size }
-                                tags { name value }
-                            }
-                        }
-                    }
-                }`
+                query: `query { transactions(owners: ["${userAddress}"], first: 10) { edges { node { id data { size } tags { name value } } } } }`
             };
 
             try {
@@ -220,50 +205,44 @@
                     headers: { "Content-Type": "application/json" },
                     body: JSON.stringify(queryGQL)
                 });
-                
                 const result = await response.json();
                 const edges = result?.data?.transactions?.edges || [];
 
                 if (edges.length === 0) {
-                    historyPlaceholder.innerText = "No se encontraron transacciones previas en la red.";
+                    historyPlaceholder.innerText = "No tienes transacciones previas.";
                     return;
                 }
 
-                historyPlaceholder.classList.add('hidden');
-                fileList.innerHTML = ""; 
+                historyPlaceholder.style.display = "none";
+                fileList.innerHTML = "";
                 
                 edges.forEach(edge => {
                     const node = edge.node;
-                    const contentTypeTag = node.tags.find(t => t.name.toLowerCase() === 'content-type');
-                    const mimeType = contentTypeTag ? contentTypeTag.value : 'unknown';
+                    const ctTag = node.tags.find(t => t.name.toLowerCase() === 'content-type');
+                    const mime = ctTag ? ctTag.value : 'desconocido';
                     const sizeKB = (node.data.size / 1024).toFixed(2);
 
-                    const itemHtml = `
-                        <div class="flex items-center justify-between p-3.5 bg-[#1a2333]/60 border border-slate-800 rounded-xl hover:border-slate-700/80 transition-colors">
-                            <div class="flex flex-col min-w-0 pr-2">
-                                <span class="text-xs font-mono text-gray-400 truncate max-w-[180px] sm:max-w-xs">${node.id}</span>
-                                <div class="flex items-center gap-2 mt-1 text-[11px] text-slate-500">
-                                    <span class="bg-slate-800 text-slate-400 px-1.5 py-0.5 rounded font-mono">${mimeType}</span>
-                                    <span>•</span>
-                                    <span>${sizeKB} KB</span>
+                    fileList.innerHTML += `
+                        <div class="list-item">
+                            <div class="item-info">
+                                <span class="item-id" style="max-width:140px;">${node.id}</span>
+                                <div class="item-meta">
+                                    <span class="meta-tag">${mime}</span>
+                                    <span>• ${sizeKB} KB</span>
                                 </div>
                             </div>
-                            <div class="flex gap-2 shrink-0">
-                                <a href="https://arweave.net{node.id}" target="_blank" class="px-3 py-1.5 bg-[#0b0f19] text-teal-400 hover:text-teal-300 border border-slate-800 hover:border-teal-500/30 text-xs font-semibold rounded-lg transition-all">Ver Data</a>
-                                <a href="https://viewblock.io{node.id}" target="_blank" class="px-3 py-1.5 bg-[#0b0f19] text-gray-400 hover:text-gray-200 border border-slate-800 text-xs font-semibold rounded-lg transition-all">Explorador</a>
+                            <div class="item-actions">
+                                <a href="https://arweave.net{node.id}" target="_blank" class="link-action">Data</a>
+                                <a href="https://viewblock.io{node.id}" target="_blank" class="link-action">Tx</a>
                             </div>
                         </div>
                     `;
-                    fileList.innerHTML += itemHtml;
                 });
-
-                fileList.classList.remove('hidden');
+                fileList.style.display = "flex";
             } catch (err) {
-                console.error("Error consultando GraphQL:", err);
-                historyPlaceholder.innerText = "Error al mapear el historial desde la red.";
+                historyPlaceholder.innerText = "Error al mapear el historial.";
             }
         }
-
         btnRefresh.addEventListener('click', fetchArweaveHistory);
     </script>
 </body>
